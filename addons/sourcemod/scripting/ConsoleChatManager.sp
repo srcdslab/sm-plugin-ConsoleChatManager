@@ -513,7 +513,7 @@ public void InitCountDown(const char[] text)
 	timerHandle = CreateDataTimer(1.0, RepeatMsg, TimerPack, TIMER_REPEAT);
 
 	char text2[MAXLENGTH_INPUT + 10];
-	if	(HudSymbols && hudtype == NORMALHUD)
+	if	(HudSymbols)
 		Format(text2, sizeof(text2), ">> %s <<", text);
 	else
 		Format(text2, sizeof(text2), "%s", text);
@@ -602,9 +602,9 @@ public void SendNewHudMsg(int client, const char[] szMessage, bool isCountdown)
 
 	int orilen = strlen(originalmsg);
 
-	// Need to remove These Html symbol from console message or it will get messy.
-	ReplaceString(originalmsg, orilen, "<", "", false);
-	ReplaceString(originalmsg, orilen, ">", "", false);
+	// Need to remove These Html symbol from console message and replace with new html symbol.
+	ReplaceString(originalmsg, orilen, "<", "&lt;", false);
+	ReplaceString(originalmsg, orilen, ">", "&gt;", false);
 
 	// Put color in to the message
 	char newmessage[MAX_BUFFER_LENGTH + 10];
