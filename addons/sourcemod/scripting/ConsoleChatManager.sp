@@ -24,8 +24,6 @@
 
 #pragma newdecls required
 
-#define VERSION 			"2.2"
-
 #define MAXLENGTH_INPUT		512
 
 #define NORMALHUD 1
@@ -73,9 +71,9 @@ char htmlcolor[64];
 public Plugin myinfo = 
 {
 	name = "ConsoleChatManager",
-	author = "Franc1sco Steam: franug, maxime1907, inGame, AntiTeal, Oylsister",
+	author = "Franc1sco Steam: franug, maxime1907, inGame, AntiTeal, Oylsister, .Rushaway",
 	description = "Interact with console messages",
-	version = VERSION,
+	version = "2.2",
 	url = ""
 };
 
@@ -85,8 +83,6 @@ public void OnPluginStart()
 
 	DeleteTimer();
 	HudSync = CreateHudSynchronizer();
-
-	CreateConVar("sm_consolechatmanager_version", VERSION, "", FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY);
 
 	g_ConsoleMessage = CreateConVar("sm_consolechatmanager_tag", "{green}[NARRATOR] {white}", "The tag that will be printed instead of the console default messages");
 
@@ -220,9 +216,8 @@ void CheckSounds()
 			KvGetString(kv, "sound", buffer, 64, "default");
 			if(!StrEqual(buffer, "default"))
 			{
-				if(!isCSGO) PrecacheSound(buffer);
-				else PrecacheSound(buffer);
-				
+				PrecacheSound(buffer);
+
 				Format(buffer, 255, "sound/%s", buffer);
 				AddFileToDownloadsTable(buffer);
 			}
@@ -445,10 +440,7 @@ public Action SayConsole(int client, const char[] command, int args)
 	if (g_EnableTranslation.BoolValue)
 	{
 		if(!StrEqual(soundp, "none"))
-		{
-			if(!isCSGO || StrEqual(soundp, "default")) EmitSoundToAll(soundt);
-			else EmitSoundToAll(soundt);
-		}
+			EmitSoundToAll(soundt);
 
 		if(KvJumpToKey(kv, "hinttext"))
 		{
