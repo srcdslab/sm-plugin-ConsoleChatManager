@@ -22,6 +22,10 @@
 #include <multicolors>
 #include <geoip>
 
+#undef REQUIRE_PLUGIN
+#tryinclude <DynamicChannels>
+#define REQUIRE_PLUGIN
+
 #pragma newdecls required
 
 #define MAXLENGTH_INPUT		512
@@ -46,6 +50,7 @@ ConVar g_cHudDuration;
 ConVar g_cHudDurationFadeOut;
 ConVar g_cHudType;
 ConVar g_cHudHtmlColor;
+ConVar g_cvHUDChannel;
 
 float HudPos[2];
 int HudColor[3];
@@ -59,11 +64,10 @@ char Blacklist[][] = {
 };
 
 bool isCSGO;
+bool g_bPlugin_DynamicChannels = false;
 
 int lastMessageTime = -1;
-
 int roundStartedTime = -1;
-
 int hudtype;
 
 char htmlcolor[64];
@@ -73,7 +77,7 @@ public Plugin myinfo =
 	name = "ConsoleChatManager",
 	author = "Franc1sco Steam: franug, maxime1907, inGame, AntiTeal, Oylsister, .Rushaway",
 	description = "Interact with console messages",
-	version = "2.2",
+	version = "2.2.1",
 	url = ""
 };
 
@@ -96,6 +100,7 @@ public void OnPluginStart()
 	g_cHudSymbols = CreateConVar("sm_consolechatmanager_hud_symbols", "1", "Determines whether >> and << are wrapped around the text.");
 	g_cHudType = CreateConVar("sm_consolechatmanager_hud_type", "1.0", "Specify the type of Hud Msg [1 = SendTextHud, 2 = CS:GO Warmup Timer]", _, true, 1.0, true, 2.0);
 	g_cHudHtmlColor = CreateConVar("sm_consolecharmanager_hud_htmlcolor", "#6CFF00", "Html color for second type of Hud Message");
+	g_cvHUDChannel = CreateConVar("sm_consolecharmanager_hud_channel", "0", "The channel for the hud if using DynamicChannels", _, true, 0.0, true, 6.0);
 
 	g_cBlockSpam = CreateConVar("sm_consolechatmanager_block_spam", "1", "Blocks console messages that repeat the same message.", FCVAR_NONE, true, 0.0, true, 1.0);
 	g_cBlockSpamDelay = CreateConVar("sm_consolechatmanager_block_spam_delay", "1", "Time to wait before printing the same message", FCVAR_NONE, true, 1.0, true, 60.0);
@@ -110,6 +115,23 @@ public void OnPluginStart()
 	AutoExecConfig(true);
 
 	GetConVars();
+}
+
+public void OnAllPluginsLoaded()
+{
+	g_bPlugin_DynamicChannels = LibraryExists("DynamicChannels");
+}
+
+public void OnLibraryAdded(const char[] name)
+{
+	if (strcmp(name, "DynamicChannels", false) == 0)
+		g_bPlugin_DynamicChannels = true;
+}
+
+public void OnLibraryRemoved(const char[] name)
+{
+	if (strcmp(name, "DynamicChannels", false) == 0)
+		g_bPlugin_DynamicChannels = false;
 }
 
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
@@ -423,17 +445,7 @@ public Action SayConsole(int client, const char[] command, int args)
 			CPrintToChat(i, sFinalText);
 
 			if (g_EnableHud.BoolValue && !isCountable)
-			{
-				if(isCSGO)
-				{
-					if(hudtype == NORMALHUD)
-						SendHudMsg(i, sText, false);
-					else
-						SendNewHudMsg(i, sText, false);
-				}
-				else
-					SendHudMsg(i, sText, false);
-			}
+				PrepareHudMsg(i, sText, false);
 		}
 	}
 
@@ -513,17 +525,7 @@ public void InitCountDown(const char[] text)
 	TimerPack.WriteString(text2);
 
 	for (int i = 1; i <= MAXPLAYERS + 1; i++)
-	{
-		if(isCSGO)
-		{
-			if(hudtype == NORMALHUD)
-				SendHudMsg(i, text2, true);
-			else
-				SendNewHudMsg(i, text2, true);
-		}
-		else
-			SendHudMsg(i, text2, true);
-	}
+		PrepareHudMsg(i, text2, true);
 }
 
 public Action RepeatMsg(Handle timer, Handle pack)
@@ -553,36 +555,56 @@ public Action RepeatMsg(Handle timer, Handle pack)
 	ReplaceString(string, sizeof(string), sONumber, sNumber);
 
 	for (int i = 1; i <= MAXPLAYERS + 1; i++)
-	{
-		if(isCSGO)
-		{
-			if(hudtype == NORMALHUD)
-				SendHudMsg(i, string, true);
-			else
-				SendNewHudMsg(i, string, true);
-		}
-		else
-			SendHudMsg(i, string, true);
-	}
+		PrepareHudMsg(i, string, true);
+
 	return Plugin_Handled;
 }
 
-public void SendHudMsg(int client, const char[] szMessage, bool isCountdown)
+stock void PrepareHudMsg(int client, const char[] szMessage, bool isCountdown)
 {
 	if (!IsValidClient(client))
 		return;
-	float duration = isCountdown ? 1.0 : g_cHudDuration.FloatValue;
-	SetHudTextParams(HudPos[0], HudPos[1], duration, HudColor[0], HudColor[1], HudColor[2], 255, 0, 0.0, 0.0, g_cHudDurationFadeOut.FloatValue);
-	ShowSyncHudText(client, HudSync, szMessage);
+
+	if (isCSGO && hudtype == NORMALHUD)
+		SendCSGO_HudMsg(client, szMessage, isCountdown);
+	else
+		SendHudMsg(client, szMessage, isCountdown);
 }
 
-public void SendNewHudMsg(int client, const char[] szMessage, bool isCountdown)
+stock void SendHudMsg(int client, const char[] szMessage, bool isCountdown)
 {
 	if (!IsValidClient(client))
 		return;
 
-	// if it's not csgo engine, then return
-	if (!isCSGO)
+	float duration = isCountdown ? 1.0 : g_cHudDuration.FloatValue;
+	SetHudTextParams(HudPos[0], HudPos[1], duration, HudColor[0], HudColor[1], HudColor[2], 255, 0, 0.0, 0.0, g_cHudDurationFadeOut.FloatValue);
+
+	bool bDynamicAvailable = false;
+	int iHUDChannel = -1;
+
+	int iChannel = g_cvHUDChannel.IntValue;
+	if (iChannel < 0 || iChannel > 6)
+		iChannel = 0;
+
+	bDynamicAvailable = g_bPlugin_DynamicChannels && CanTestFeatures() && GetFeatureStatus(FeatureType_Native, "GetDynamicChannel") == FeatureStatus_Available;
+
+#if defined _DynamicChannels_included_
+	if (bDynamicAvailable)
+		iHUDChannel = GetDynamicChannel(iChannel);
+#endif
+
+	if (bDynamicAvailable)
+		ShowHudText(client, iHUDChannel, szMessage);
+	else
+	{
+		ClearSyncHud(client, HudSync);
+		ShowSyncHudText(client, HudSync, szMessage);
+	}
+}
+
+stock void SendCSGO_HudMsg(int client, const char[] szMessage, bool isCountdown)
+{
+	if (!isCSGO || !IsValidClient(client))
 		return;
 
 	// Event use int for duration

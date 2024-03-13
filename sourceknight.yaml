@@ -1,5 +1,5 @@
 project:
-  sourceknight: 0.1
+  sourceknight: 0.2
   name: ConsoleChatManager
   dependencies:
     - name: sourcemod
@@ -9,18 +9,28 @@ project:
       unpack:
       - source: /addons
         dest: /addons
+
     - name: multicolors
       type: git
       repo: https://github.com/srcdslab/sm-plugin-MultiColors
       unpack:
       - source: /addons
         dest: /addons
+
     - name: ext-connect
       type: git
       repo: https://github.com/srcdslab/sm-ext-connect
       unpack:
       - source: /addons
         dest: /addons
+
+    - name: dynamicchannels
+      type: git
+      repo: https://github.com/srcdslab/sm-plugin-DynamicChannels
+      unpack:
+      - source: /scripting/include
+        dest: /addons/sourcemod/scripting/include
+
   root: /
   output: /addons/sourcemod/plugins
   targets:
