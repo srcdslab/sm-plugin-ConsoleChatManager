@@ -45,6 +45,7 @@ ConVar g_EnableTranslation;
 ConVar g_EnableHud;
 ConVar g_cHudPosition;
 ConVar g_cHudColor;
+ConVar g_cHudMapSymbols;
 ConVar g_cHudSymbols;
 ConVar g_cHudDuration;
 ConVar g_cHudDurationFadeOut;
@@ -54,6 +55,7 @@ ConVar g_cvHUDChannel;
 
 float HudPos[2];
 int HudColor[3];
+bool HudMapSymbols;
 bool HudSymbols;
 
 int number, onumber;
@@ -77,7 +79,7 @@ public Plugin myinfo =
 	name = "ConsoleChatManager",
 	author = "Franc1sco Steam: franug, maxime1907, inGame, AntiTeal, Oylsister, .Rushaway",
 	description = "Interact with console messages",
-	version = "2.2.1",
+	version = "2.3.0",
 	url = ""
 };
 
@@ -97,6 +99,7 @@ public void OnPluginStart()
 	g_cHudDurationFadeOut = CreateConVar("sm_consolechatmanager_hud_duration_fadeout", "1.0", "How long the message takes to disapear");
 	g_cHudPosition = CreateConVar("sm_consolechatmanager_hud_position", "-1.0 0.125", "The X and Y position for the hud.");
 	g_cHudColor = CreateConVar("sm_consolechatmanager_hud_color", "0 255 0", "RGB color value for the hud.");
+	g_cHudMapSymbols = CreateConVar("sm_consolechatmanager_hud_mapsymbols", "1", "Eliminate the original prefix and suffix from the map text when displayed in the Hud.", _, true, 0.0, true, 1.0);
 	g_cHudSymbols = CreateConVar("sm_consolechatmanager_hud_symbols", "1", "Determines whether >> and << are wrapped around the text.");
 	g_cHudType = CreateConVar("sm_consolechatmanager_hud_type", "1.0", "Specify the type of Hud Msg [1 = SendTextHud, 2 = CS:GO Warmup Timer]", _, true, 1.0, true, 2.0);
 	g_cHudHtmlColor = CreateConVar("sm_consolechatmanager_hud_htmlcolor", "#6CFF00", "Html color for second type of Hud Message");
@@ -107,6 +110,7 @@ public void OnPluginStart()
 
 	g_cHudPosition.AddChangeHook(OnConVarChanged);
 	g_cHudColor.AddChangeHook(OnConVarChanged);
+	g_cHudMapSymbols.AddChangeHook(OnConVarChanged);
 	g_cHudSymbols.AddChangeHook(OnConVarChanged);
 	g_cHudType.AddChangeHook(OnConVarChanged);
 
@@ -193,6 +197,7 @@ public void GetConVars()
 
 	ColorStringToArray(ColorValue, HudColor);
 
+	HudMapSymbols = g_cHudMapSymbols.BoolValue;
 	HudSymbols = g_cHudSymbols.BoolValue;
 
 	hudtype = g_cHudType.IntValue;
@@ -236,7 +241,7 @@ void CheckSounds()
 		do
 		{
 			KvGetString(kv, "sound", buffer, 64, "default");
-			if(!StrEqual(buffer, "default"))
+			if (strcmp(buffer, "default", false) != 0)
 			{
 				PrecacheSound(buffer);
 
@@ -262,13 +267,13 @@ public bool CheckString(const char[] string)
 	return false;
 }
 
-public bool IsCountable(const char sMessage[MAXLENGTH_INPUT])
+public bool IsCountable(const char[] sMessage)
 {
-	char FilterText[sizeof(sMessage)+1], ChatArray[32][MAXLENGTH_INPUT];
+	char FilterText[MAXLENGTH_INPUT], ChatArray[32][MAXLENGTH_INPUT];
 	int consoleNumber, filterPos;
-	bool isCountable = false;
+	bool countable = false;
 
-	for (int i = 0; i < sizeof(sMessage); i++)
+	for (int i = 0; i < MAXLENGTH_INPUT && filterPos < MAXLENGTH_INPUT; i++)
 	{
 		if (IsCharAlpha(sMessage[i]) || IsCharNumeric(sMessage[i]) || IsCharSpace(sMessage[i]))
 		{
@@ -278,74 +283,67 @@ public bool IsCountable(const char sMessage[MAXLENGTH_INPUT])
 	FilterText[filterPos] = '\0';
 	TrimString(FilterText);
 
-	if(CheckString(sMessage))
-		return isCountable;
+	// Check if the filtered message is empty or contains only spaces
+	if (CheckString(FilterText))
+		return false;
 
 	int words = ExplodeString(FilterText, " ", ChatArray, sizeof(ChatArray), sizeof(ChatArray[]));
 
-	if(words == 1)
+	// Loop through the words to find a countable number
+	for (int i = 0; i < words; i++)
 	{
-		if(StringToInt(ChatArray[0]) != 0)
+		int num = StringToInt(ChatArray[i]);
+		if (num != 0)
 		{
-			isCountable = true;
-			consoleNumber = StringToInt(ChatArray[0]);
+			// Check for other conditions to set countable to true
+			if (i + 1 < words && (strcmp(ChatArray[i + 1], "s", false) == 0 || (CharEqual(ChatArray[i + 1][0], 's') && CharEqual(ChatArray[i + 1][1], 'e'))))
+			{
+				countable = true;
+			}
+			else if (i + 2 < words && (strcmp(ChatArray[i + 2], "s", false) == 0 || (CharEqual(ChatArray[i + 2][0], 's') && CharEqual(ChatArray[i + 2][1], 'e'))))
+			{
+				countable = true;
+			}
+			else if (IsCountableNumber(ChatArray[i]))
+			{
+				countable = true;
+			}
+
+			if (countable)
+			{
+				consoleNumber = num;
+			}
 		}
 	}
 
-	for(int i = 0; i <= words; i++)
-	{
-		if(StringToInt(ChatArray[i]) != 0)
-		{
-			if(i + 1 <= words && (StrEqual(ChatArray[i + 1], "s", false) || (CharEqual(ChatArray[i + 1][0], 's') && CharEqual(ChatArray[i + 1][1], 'e'))))
-			{
-				consoleNumber = StringToInt(ChatArray[i]);
-				isCountable = true;
-			}
-			if(!isCountable && i + 2 <= words && (StrEqual(ChatArray[i + 2], "s", false) || (CharEqual(ChatArray[i + 2][0], 's') && CharEqual(ChatArray[i + 2][1], 'e'))))
-			{
-				consoleNumber = StringToInt(ChatArray[i]);
-				isCountable = true;
-			}
-		}
-		if(!isCountable)
-		{
-			char word[MAXLENGTH_INPUT];
-			strcopy(word, sizeof(word), ChatArray[i]);
-			int len = strlen(word);
+	// Update the countable number and return whether it was found
+	number = consoleNumber;
+	onumber = consoleNumber;
+	return consoleNumber != 0 && countable;
+}
 
-			if(IsCharNumeric(word[0]))
+bool IsCountableNumber(const char[] word)
+{
+	int len = strlen(word);
+	if (len > 1 && IsCharNumeric(word[0]))
+	{
+		if (len > 2 && IsCharNumeric(word[1]))
+		{
+			if (len > 3 && IsCharNumeric(word[2]) && CharEqual(word[3], 's'))
 			{
-				if(IsCharNumeric(word[1]))
-				{
-					if(IsCharNumeric(word[2]))
-					{
-						if(CharEqual(word[3], 's'))
-						{
-							consoleNumber = StringEnder(word, 5, len);
-							isCountable = true;
-						}
-					}
-					else if(CharEqual(word[2], 's'))
-					{
-						consoleNumber = StringEnder(word, 4, len);
-						isCountable = true;
-					}
-				}
-				else if(CharEqual(word[1], 's'))
-				{
-					consoleNumber = StringEnder(word, 3, len);
-					isCountable = true;
-				}
+				return true;
+			}
+			else if (CharEqual(word[2], 's'))
+			{
+				return true;
 			}
 		}
-		if(isCountable)
+		else if (CharEqual(word[1], 's'))
 		{
-			number = consoleNumber;
-			onumber = consoleNumber;
-			break;
+			return true;
 		}
 	}
-	return isCountable;
+	return false;
 }
 
 public Action SayConsole(int client, const char[] command, int args)
@@ -360,7 +358,7 @@ public Action SayConsole(int client, const char[] command, int args)
 	if (g_cBlockSpam.BoolValue)
 	{
 		int currentTime = GetTime();
-		if (StrEqual(sText, lastMessage, true))
+		if (strcmp(sText, lastMessage, true) == 0)
 		{
 			if (lastMessageTime != -1 && ((currentTime - lastMessageTime) <= g_cBlockSpamDelay.IntValue))
 			{
@@ -399,7 +397,7 @@ public Action SayConsole(int client, const char[] command, int args)
 		}
 
 		KvGetString(kv, "sound", soundp, sizeof(soundp), "default");
-		if(StrEqual(soundp, "default"))
+		if(strcmp(soundp, "default") == 0)
 			Format(soundt, 255, "common/talk.wav");
 		else
 			Format(soundt, 255, soundp);
@@ -413,9 +411,6 @@ public Action SayConsole(int client, const char[] command, int args)
 
 	g_ConsoleMessage.GetString(sConsoleTag, sizeof(sConsoleTag));
 
-	if (g_EnableHud.BoolValue && isCountable)
-		InitCountDown(sText);
-
 	for(int i = 1 ; i < MaxClients; i++)
 	{
 		if(IsClientInGame(i))
@@ -426,7 +421,7 @@ public Action SayConsole(int client, const char[] command, int args)
 				GeoipCode2(sIP, sCountryTag);
 				KvGetString(kv, sCountryTag, sText, sizeof(sText), "LANGMISSING");
 
-				if (StrEqual(sText, "LANGMISSING")) KvGetString(kv, "default", sText, sizeof(sText));
+				if (strcmp(sText, "LANGMISSING") == 0) KvGetString(kv, "default", sText, sizeof(sText));
 			}
 
 			Format(sFinalText, sizeof(sFinalText), "%s%s", sConsoleTag, sText);
@@ -443,15 +438,13 @@ public Action SayConsole(int client, const char[] command, int args)
 			}
 
 			CPrintToChat(i, sFinalText);
-
-			if (g_EnableHud.BoolValue && !isCountable)
-				PrepareHudMsg(i, sText, false);
+			PrepareHudMsg(i, sText);
 		}
 	}
 
 	if (g_EnableTranslation.BoolValue)
 	{
-		if(!StrEqual(soundp, "none"))
+		if(strcmp(soundp, "none", false) != 0)
 			EmitSoundToAll(soundt);
 
 		if(KvJumpToKey(kv, "hinttext"))
@@ -463,7 +456,7 @@ public Action SayConsole(int client, const char[] command, int args)
 					GeoipCode2(sIP, sCountryTag);
 					KvGetString(kv, sCountryTag, sText, sizeof(sText), "LANGMISSING");
 
-					if (StrEqual(sText, "LANGMISSING")) KvGetString(kv, "default", sText, sizeof(sText));
+					if (strcmp(sText, "LANGMISSING") == 0) KvGetString(kv, "default", sText, sizeof(sText));
 				
 					PrintHintText(i, sText);
 				}
@@ -505,7 +498,7 @@ public int StringEnder(char[] a, int b, int c)
 	return StringToInt(a);
 }
 
-public void InitCountDown(const char[] text)
+public void InitCountDown(const char[] szMessage)
 {
 	if(timerHandle != INVALID_HANDLE)
 	{
@@ -515,17 +508,7 @@ public void InitCountDown(const char[] text)
 
 	DataPack TimerPack;
 	timerHandle = CreateDataTimer(1.0, RepeatMsg, TimerPack, TIMER_REPEAT);
-
-	char text2[MAXLENGTH_INPUT + 10];
-	if	(HudSymbols)
-		Format(text2, sizeof(text2), ">> %s <<", text);
-	else
-		Format(text2, sizeof(text2), "%s", text);
-
-	TimerPack.WriteString(text2);
-
-	for (int i = 1; i <= MAXPLAYERS + 1; i++)
-		PrepareHudMsg(i, text2, true);
+	TimerPack.WriteString(szMessage);
 }
 
 public Action RepeatMsg(Handle timer, Handle pack)
@@ -560,10 +543,127 @@ public Action RepeatMsg(Handle timer, Handle pack)
 	return Plugin_Handled;
 }
 
-stock void PrepareHudMsg(int client, const char[] szMessage, bool isCountdown)
+stock void RemoveTextInBraces(char[] szMessage, bool bRemoveInt = false, bool bRemoveBracesForInt = false)
 {
-	if (!IsValidClient(client))
+	bool bracesFound = true;
+	while (bracesFound)
+	{
+		int start = StrContains(szMessage, "{", false);
+		int end = StrContains(szMessage, "}", false);
+
+		if (start != -1 && end != -1)
+		{
+			bool isInteger = false;
+			if (bRemoveInt)
+			{
+				isInteger = true;
+				// Check if content between braces is not an integer value
+				for (int i = start + 1; i < end; i++)
+				{
+					if (!(szMessage[i] >= '0' && szMessage[i] <= '9') && szMessage[i] != '.')
+					{
+						isInteger = false;
+						break;
+					}
+				}
+			}
+
+			if (!isInteger)
+			{
+				// Content between braces is not an integer, remove it along with braces
+				int len = strlen(szMessage), i = 0, j = 0;
+				while (i < len)
+				{
+					if ((i < start) || (i > end))
+					{
+						szMessage[j] = szMessage[i];
+						j++;
+					}
+					i++;
+				}
+				szMessage[j] = '\0';
+			}
+			else if (bRemoveBracesForInt)
+			{
+				// Content between braces is an integer, remove the braces only
+				for (int i = start; i <= end; i++)
+				{
+					if (szMessage[i] == '{' || szMessage[i] == '}')
+						szMessage[i] = ' ';
+				}
+			}
+		}
+		else
+		{
+			// No (more) braces found, we can exit the loop
+			bracesFound = false;
+		}
+	}
+}
+
+void RemoveDuplicatePrefixAndSuffix(char[] sBuffer, bool isRepeated = false)
+{
+	if (isRepeated || !sBuffer[0] || sBuffer[0] == '\0')
 		return;
+
+	int length = strlen(sBuffer);
+
+	// Find the longest prefix
+	int prefixLength = 0;
+	while (prefixLength < length && sBuffer[prefixLength] == sBuffer[0])
+		prefixLength++;
+
+	// Find the longest suffix
+	int suffixLength = 0;
+	while (suffixLength < length && sBuffer[length - suffixLength - 1] == sBuffer[length - 1])
+		suffixLength++;
+
+	// Check if there are duplicate prefix and suffix
+	if (prefixLength > 1 && suffixLength > 1 && prefixLength + suffixLength < length)
+	{
+		// Remove duplicates
+		int newSize = length - prefixLength - suffixLength;
+		for (int i = 0; i < newSize; i++)
+		{
+			sBuffer[i] = sBuffer[i + prefixLength];
+		}
+
+		sBuffer[newSize] = '\0';
+	}
+}
+
+public bool StringContainDecimal(char[] input)
+{
+	for (int i = 0; i < strlen(input); i++)
+	{
+		if (input[i] == '.' || input[i] == ',')
+			return true;
+	}
+
+	return false;
+}
+
+stock void PrepareHudMsg(int client, char[] sBuffer, bool isRepeated = false)
+{
+	if (!g_EnableHud.BoolValue || !IsValidClient(client))
+		return;
+
+	if (HudMapSymbols)
+		RemoveDuplicatePrefixAndSuffix(sBuffer, isRepeated);
+
+	RemoveTextInBraces(sBuffer, true, true);
+
+	bool containsDecimal = StringContainDecimal(sBuffer);
+	bool isCountdown = !containsDecimal && IsCountable(sBuffer);
+
+	char szMessage[MAXLENGTH_INPUT + 10];
+	FormatEx(szMessage, sizeof(szMessage), "%s", sBuffer);
+
+	if (!isRepeated && HudSymbols)
+		FormatEx(szMessage, sizeof(szMessage), ">> %s <<", sBuffer);
+
+	if (isCountdown)
+		InitCountDown(szMessage);
 
 	if (isCSGO && hudtype == NORMALHUD)
 		SendCSGO_HudMsg(client, szMessage, isCountdown);
