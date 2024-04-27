@@ -7,6 +7,7 @@ A powerful tool for managing console messages and enhancing your server's chat e
 The following console variables (cvars) can be adjusted to tailor the behavior of the Console Chat Manager to your preferences:
 
 - **sm_consolechatmanager_tag**: Specifies the tag that will replace the default console messages.
+- **sm_consolechatmanager_remove_tag**: Remove console tag if message contain square bracket and a color name
 - **sm_consolechatmanager_translation**: Enables or disables translation of console chat messages.
 - **sm_consolechatmanager_hud**: Enables printing console output in the middle of the screen.
 - **sm_consolechatmanager_hud_duration**: Sets the duration for which HUD messages stay on the screen.
