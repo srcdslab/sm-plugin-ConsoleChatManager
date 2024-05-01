@@ -87,7 +87,7 @@ public Plugin myinfo =
 	name = "ConsoleChatManager",
 	author = "Franc1sco Steam: franug, maxime1907, inGame, AntiTeal, Oylsister, .Rushaway",
 	description = "Interact with console messages",
-	version = "2.3.1",
+	version = "2.3.2",
 	url = ""
 };
 
@@ -331,13 +331,13 @@ public bool CheckStringBlacklist(const char[] string)
 	return false;
 }
 
-public bool IsCountable(const char[] sMessage)
+public bool IsCountable(const char sMessage[MAXLENGTH_INPUT])
 {
-	char FilterText[MAXLENGTH_INPUT], ChatArray[32][MAXLENGTH_INPUT];
+	char FilterText[sizeof(sMessage)+1], ChatArray[32][MAXLENGTH_INPUT];
 	int consoleNumber, filterPos;
-	bool countable = false;
+	bool isCountable = false;
 
-	for (int i = 0; i < MAXLENGTH_INPUT && filterPos < MAXLENGTH_INPUT; i++)
+	for (int i = 0; i < sizeof(sMessage); i++)
 	{
 		if (IsCharAlpha(sMessage[i]) || IsCharNumeric(sMessage[i]) || IsCharSpace(sMessage[i]))
 		{
@@ -347,67 +347,74 @@ public bool IsCountable(const char[] sMessage)
 	FilterText[filterPos] = '\0';
 	TrimString(FilterText);
 
-	// Check if the filtered message is empty or contains only spaces
-	if (CheckStringBlacklist(FilterText))
-		return false;
+	if(CheckStringBlacklist(sMessage))
+		return isCountable;
 
 	int words = ExplodeString(FilterText, " ", ChatArray, sizeof(ChatArray), sizeof(ChatArray[]));
 
-	// Loop through the words to find a countable number
-	for (int i = 0; i < words; i++)
+	if(words == 1)
 	{
-		int num = StringToInt(ChatArray[i]);
-		if (num != 0)
+		if(StringToInt(ChatArray[0]) != 0)
 		{
-			// Check for other conditions to set countable to true
-			if (i + 1 < words && (strcmp(ChatArray[i + 1], "s", false) == 0 || (CharEqual(ChatArray[i + 1][0], 's') && CharEqual(ChatArray[i + 1][1], 'e'))))
-			{
-				countable = true;
-			}
-			else if (i + 2 < words && (strcmp(ChatArray[i + 2], "s", false) == 0 || (CharEqual(ChatArray[i + 2][0], 's') && CharEqual(ChatArray[i + 2][1], 'e'))))
-			{
-				countable = true;
-			}
-			else if (IsCountableNumber(ChatArray[i]))
-			{
-				countable = true;
-			}
-
-			if (countable)
-			{
-				consoleNumber = num;
-			}
+			isCountable = true;
+			consoleNumber = StringToInt(ChatArray[0]);
 		}
 	}
 
-	// Update the countable number and return whether it was found
-	g_iNumber = consoleNumber;
-	g_iOnumber = consoleNumber;
-	return consoleNumber != 0 && countable;
-}
-
-bool IsCountableNumber(const char[] word)
-{
-	int len = strlen(word);
-	if (len > 1 && IsCharNumeric(word[0]))
+	for(int i = 0; i <= words; i++)
 	{
-		if (len > 2 && IsCharNumeric(word[1]))
+		if(StringToInt(ChatArray[i]) != 0)
 		{
-			if (len > 3 && IsCharNumeric(word[2]) && CharEqual(word[3], 's'))
+			if(i + 1 <= words && (strcmp(ChatArray[i + 1], "s", false) == 0 || (CharEqual(ChatArray[i + 1][0], 's') && CharEqual(ChatArray[i + 1][1], 'e'))))
 			{
-				return true;
+				consoleNumber = StringToInt(ChatArray[i]);
+				isCountable = true;
 			}
-			else if (CharEqual(word[2], 's'))
+			if(!isCountable && i + 2 <= words && (strcmp(ChatArray[i + 2], "s", false) == 0 || (CharEqual(ChatArray[i + 2][0], 's') && CharEqual(ChatArray[i + 2][1], 'e'))))
 			{
-				return true;
+				consoleNumber = StringToInt(ChatArray[i]);
+				isCountable = true;
 			}
 		}
-		else if (CharEqual(word[1], 's'))
+		if(!isCountable)
 		{
-			return true;
+			char word[MAXLENGTH_INPUT];
+			strcopy(word, sizeof(word), ChatArray[i]);
+			int len = strlen(word);
+
+			if(IsCharNumeric(word[0]))
+			{
+				if(IsCharNumeric(word[1]))
+				{
+					if(IsCharNumeric(word[2]))
+					{
+						if(CharEqual(word[3], 's'))
+						{
+							consoleNumber = StringEnder(word, 5, len);
+							isCountable = true;
+						}
+					}
+					else if(CharEqual(word[2], 's'))
+					{
+						consoleNumber = StringEnder(word, 4, len);
+						isCountable = true;
+					}
+				}
+				else if(CharEqual(word[1], 's'))
+				{
+					consoleNumber = StringEnder(word, 3, len);
+					isCountable = true;
+				}
+			}
+		}
+		if(isCountable)
+		{
+			g_iNumber = consoleNumber;
+			g_iOnumber = consoleNumber;
+			break;
 		}
 	}
-	return false;
+	return isCountable;
 }
 
 public Action SayConsole(int client, const char[] command, int args)
@@ -471,6 +478,8 @@ public Action SayConsole(int client, const char[] command, int args)
 	char sCountryTag[3];
 	char sIP[26];
 	bool isCountable = IsCountable(sText);
+	bool containsDecimal = StringContainDecimal(sText);
+	bool isCountdown = !containsDecimal && isCountable;
 
 	for(int i = 1 ; i < MaxClients; i++)
 	{
@@ -502,7 +511,26 @@ public Action SayConsole(int client, const char[] command, int args)
 			}
 
 			CPrintToChat(i, sFinalText);
-			PrepareHudMsg(i, sText);
+
+			// Prepare HUD message
+			if (g_bEnableHud)
+			{
+				if (g_bHudMapSymbols)
+					RemoveDuplicatePrefixAndSuffix(sText);
+
+				RemoveTextInBraces(sText, true, true);
+
+				char szMessage[MAXLENGTH_INPUT + 10];
+				if (g_bHudSymbols)
+					FormatEx(szMessage, sizeof(szMessage), ">> %s <<", sText);
+				else
+					FormatEx(szMessage, sizeof(szMessage), "%s", sText);
+
+				PrepareHudMsg(i, szMessage, isCountdown);
+
+				if (isCountdown)
+					InitCountDown(szMessage);
+			}
 		}
 	}
 
@@ -555,12 +583,7 @@ public int StringEnder(char[] a, int b, int c)
 
 public void InitCountDown(const char[] szMessage)
 {
-	if(g_hTimerHandle != INVALID_HANDLE)
-	{
-		KillTimer(g_hTimerHandle);
-		g_hTimerHandle = INVALID_HANDLE;
-	}
-
+	DeleteTimer();
 	DataPack TimerPack;
 	g_hTimerHandle = CreateDataTimer(1.0, RepeatMsg, TimerPack, TIMER_REPEAT);
 	TimerPack.WriteString(szMessage);
@@ -593,7 +616,12 @@ public Action RepeatMsg(Handle timer, Handle pack)
 	ReplaceString(string, sizeof(string), sONumber, sNumber);
 
 	for (int i = 1; i <= MAXPLAYERS + 1; i++)
-		PrepareHudMsg(i, string, true);
+	{
+		if (g_bisCSGO && g_iHudtype == NORMALHUD)
+			SendCSGO_HudMsg(i, string, true);
+		else
+			SendHudMsg(i, string, true);
+	}
 
 	return Plugin_Handled;
 }
@@ -656,9 +684,9 @@ stock void RemoveTextInBraces(char[] szMessage, bool bRemoveInt = false, bool bR
 	}
 }
 
-stock void RemoveDuplicatePrefixAndSuffix(char[] sBuffer, bool isRepeated = false)
+stock void RemoveDuplicatePrefixAndSuffix(char[] sBuffer)
 {
-	if (isRepeated || !sBuffer[0] || sBuffer[0] == '\0')
+	if (!sBuffer[0] || sBuffer[0] == '\0')
 		return;
 
 	int length = strlen(sBuffer);
@@ -698,32 +726,15 @@ public bool StringContainDecimal(char[] input)
 	return false;
 }
 
-stock void PrepareHudMsg(int client, char[] sBuffer, bool isRepeated = false)
+stock void PrepareHudMsg(int client, char[] sBuffer, bool isCountdown = false)
 {
 	if (!g_bEnableHud || !IsValidClient(client, false, false, false))
 		return;
 
-	if (g_bHudMapSymbols)
-		RemoveDuplicatePrefixAndSuffix(sBuffer, isRepeated);
-
-	RemoveTextInBraces(sBuffer, true, true);
-
-	bool containsDecimal = StringContainDecimal(sBuffer);
-	bool isCountdown = !containsDecimal && IsCountable(sBuffer);
-
-	char szMessage[MAXLENGTH_INPUT + 10];
-	FormatEx(szMessage, sizeof(szMessage), "%s", sBuffer);
-
-	if (!isRepeated && g_bHudSymbols)
-		FormatEx(szMessage, sizeof(szMessage), ">> %s <<", sBuffer);
-
-	if (isCountdown)
-		InitCountDown(szMessage);
-
 	if (g_bisCSGO && g_iHudtype == NORMALHUD)
-		SendCSGO_HudMsg(client, szMessage, isCountdown);
+		SendCSGO_HudMsg(client, sBuffer, isCountdown);
 	else
-		SendHudMsg(client, szMessage, isCountdown);
+		SendHudMsg(client, sBuffer, isCountdown);
 }
 
 stock void SendHudMsg(int client, const char[] szMessage, bool isCountdown)
