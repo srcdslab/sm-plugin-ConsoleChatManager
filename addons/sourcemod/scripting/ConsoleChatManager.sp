@@ -31,14 +31,13 @@
 
 #define MAXLENGTH_INPUT		512
 #define NORMALHUD 1
-#define CSGO_WARMUPTIMER 2
 
 ConVar g_ConsoleMessage, g_EnableTranslation, g_cRemoveConsoleTag;
 ConVar g_cBlockSpam, g_cBlockSpamDelay;
 ConVar g_EnableHud, g_cHudPosition, g_cHudColor, g_cHudHtmlColor;
 ConVar g_cHudMapSymbols, g_cHudSymbols;
 ConVar g_cHudDuration, g_cHudDurationFadeOut;
-ConVar g_cHudType, g_cvHUDChannel;
+ConVar g_cvHUDChannel;
 
 char g_sBlacklist[][] = { "recharge", "recast", "cooldown", "cool" };
 char g_sColorlist[][] = {
@@ -69,7 +68,6 @@ char g_sHudPosition[16], g_sHudColor[64], g_sHtmlColor[64];
 float g_fHudPos[2];
 float g_fHudDuration, g_fHudFadeOutDuration;
 
-bool g_bisCSGO = false;
 bool g_bPlugin_DynamicChannels = false;
 bool g_bTranslation, g_bEnableHud, g_bHudMapSymbols, g_bHudSymbols, g_bBlockSpam, g_bRemoveConsoleTag;
 
@@ -77,7 +75,7 @@ int g_iHudColor[3];
 int g_iNumber, g_iOnumber;
 int g_iLastMessageTime = -1;
 int g_iRoundStartedTime = -1;
-int g_iHudtype, g_iHUDChannel, g_iBlockSpamDelay;
+int g_iHUDChannel, g_iBlockSpamDelay;
 
 Handle kv;
 Handle g_hTimerHandle, g_hHudSync;
@@ -87,7 +85,7 @@ public Plugin myinfo =
 	name = "ConsoleChatManager",
 	author = "Franc1sco Steam: franug, maxime1907, inGame, AntiTeal, Oylsister, .Rushaway",
 	description = "Interact with console messages",
-	version = "2.3.2",
+	version = "2.3.3",
 	url = ""
 };
 
@@ -112,7 +110,6 @@ public void OnPluginStart()
 	g_cHudColor = CreateConVar("sm_consolechatmanager_hud_color", "0 255 0", "RGB color value for the hud.");
 	g_cHudMapSymbols = CreateConVar("sm_consolechatmanager_hud_mapsymbols", "1", "Eliminate the original prefix and suffix from the map text when displayed in the Hud.", _, true, 0.0, true, 1.0);
 	g_cHudSymbols = CreateConVar("sm_consolechatmanager_hud_symbols", "1", "Determines whether >> and << are wrapped around the text.");
-	g_cHudType = CreateConVar("sm_consolechatmanager_hud_type", "1", "Specify the type of Hud Msg [1 = SendTextHud, 2 = CS:GO Warmup Timer]", _, true, 1.0, true, 2.0);
 	g_cHudHtmlColor = CreateConVar("sm_consolechatmanager_hud_htmlcolor", "#6CFF00", "Html color for second type of Hud Message");
 	g_cvHUDChannel = CreateConVar("sm_consolechatmanager_hud_channel", "0", "The channel for the hud if using DynamicChannels", _, true, 0.0, true, 6.0);
 
@@ -130,7 +127,6 @@ public void OnPluginStart()
 	g_cHudColor.AddChangeHook(OnConVarChanged);
 	g_cHudMapSymbols.AddChangeHook(OnConVarChanged);
 	g_cHudSymbols.AddChangeHook(OnConVarChanged);
-	g_cHudType.AddChangeHook(OnConVarChanged);
 	g_cHudHtmlColor.AddChangeHook(OnConVarChanged);
 	g_cvHUDChannel.AddChangeHook(OnConVarChanged);
 	g_cBlockSpam.AddChangeHook(OnConVarChanged);
@@ -147,7 +143,6 @@ public void OnPluginStart()
 	UpdateHudColor();
 	g_bHudMapSymbols = g_cHudMapSymbols.BoolValue;
 	g_bHudSymbols = g_cHudSymbols.BoolValue;
-	g_iHudtype = g_cHudType.IntValue;
 	g_cHudHtmlColor.GetString(g_sHtmlColor, sizeof(g_sHtmlColor));
 	g_iHUDChannel = g_cvHUDChannel.IntValue;
 	g_bBlockSpam = g_cBlockSpam.BoolValue;
@@ -173,12 +168,6 @@ public void OnLibraryRemoved(const char[] name)
 {
 	if (strcmp(name, "DynamicChannels", false) == 0)
 		g_bPlugin_DynamicChannels = false;
-}
-
-public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
-{
-	g_bisCSGO = (GetEngineVersion() == Engine_CSGO);
-	return APLRes_Success;
 }
 
 public void OnMapStart()
@@ -209,8 +198,6 @@ public void OnConVarChanged(ConVar convar, char[] oldValue, char[] newValue)
 		g_bHudMapSymbols = g_cHudMapSymbols.BoolValue;
 	else if (convar == g_cHudSymbols)
 		g_bHudSymbols = g_cHudSymbols.BoolValue;
-	else if (convar == g_cHudType)
-		g_iHudtype = g_cHudType.IntValue;
 	else if (convar == g_cHudHtmlColor)
 		g_cHudHtmlColor.GetString(g_sHtmlColor, sizeof(g_sHtmlColor));
 	else if (convar == g_cvHUDChannel)
@@ -617,10 +604,7 @@ public Action RepeatMsg(Handle timer, Handle pack)
 
 	for (int i = 1; i <= MAXPLAYERS + 1; i++)
 	{
-		if (g_bisCSGO && g_iHudtype == NORMALHUD)
-			SendCSGO_HudMsg(i, string, true);
-		else
-			SendHudMsg(i, string, true);
+		SendHudMsg(i, string, true);
 	}
 
 	return Plugin_Handled;
@@ -731,10 +715,7 @@ stock void PrepareHudMsg(int client, char[] sBuffer, bool isCountdown = false)
 	if (!g_bEnableHud || !IsValidClient(client, false, false, false))
 		return;
 
-	if (g_bisCSGO && g_iHudtype == NORMALHUD)
-		SendCSGO_HudMsg(client, sBuffer, isCountdown);
-	else
-		SendHudMsg(client, sBuffer, isCountdown);
+	SendHudMsg(client, sBuffer, isCountdown);
 }
 
 stock void SendHudMsg(int client, const char[] szMessage, bool isCountdown)
@@ -765,62 +746,6 @@ stock void SendHudMsg(int client, const char[] szMessage, bool isCountdown)
 	{
 		ClearSyncHud(client, g_hHudSync);
 		ShowSyncHudText(client, g_hHudSync, szMessage);
-	}
-}
-
-stock void SendCSGO_HudMsg(int client, const char[] szMessage, bool isCountdown)
-{
-	if (!g_bisCSGO || !IsValidClient(client, false, false, false))
-		return;
-
-	// Event use int for duration
-	int duration = isCountdown ? 2 : RoundToNearest(g_fHudDuration);
-
-	// We don't want to mess with original constant char
-	char originalmsg[MAX_BUFFER_LENGTH + 10];
-	FormatEx(originalmsg, sizeof(originalmsg), "%s", szMessage);
-
-	int orilen = strlen(originalmsg);
-
-	// Need to remove These Html symbol from console message and replace with new html symbol.
-	ReplaceString(originalmsg, orilen, "<", "&lt;", false);
-	ReplaceString(originalmsg, orilen, ">", "&gt;", false);
-
-	// Put color in to the message
-	char newmessage[MAX_BUFFER_LENGTH + 10];
-	int newlen = strlen(newmessage);
-
-	// If the message is too long we need to reduce font size.
-	if(newlen <= 65)
-		// Put color in to the message (These html FormatEx is fine)
-		FormatEx(newmessage, sizeof(newmessage), "<span class='fontSize-l'><span color='%s'>%s</span></span>", g_sHtmlColor, originalmsg);
-	else if(newlen <= 100)
-		FormatEx(newmessage, sizeof(newmessage), "<span class='fontSize-m'><span color='%s'>%s</span></span>", g_sHtmlColor, originalmsg);
-	else
-		FormatEx(newmessage, sizeof(newmessage), "<span class='fontSize-sm'><span color='%s'>%s</span></span>", g_sHtmlColor, originalmsg);
-
-	// Fire the message to player (https://github.com/Kxnrl/CSGO-HtmlHud/blob/main/fys.huds.sp#L167)
-	Event event = CreateEvent("show_survival_respawn_status");
-	if (event != null)
-	{
-		event.SetString("loc_token", newmessage);
-		event.SetInt("duration", duration);
-		event.SetInt("userid", -1);
-		if(client == -1)
-		{
-			for(int i = 1; i <= MaxClients; i++)
-			{
-				if(IsClientInGame(i) && (!IsFakeClient(i) || IsClientSourceTV(i)))
-				{
-					event.FireToClient(i);
-				}
-			}
-		}
-		else
-		{
-			event.FireToClient(client);
-		}
-		event.Cancel();
 	}
 }
 
