@@ -17,13 +17,6 @@ project:
       - source: /addons
         dest: /addons
 
-    - name: ext-connect
-      type: git
-      repo: https://github.com/srcdslab/sm-ext-connect
-      unpack:
-      - source: /addons
-        dest: /addons
-
     - name: dynamicchannels
       type: git
       repo: https://github.com/srcdslab/sm-plugin-DynamicChannels
