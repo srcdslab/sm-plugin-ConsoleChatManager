@@ -85,7 +85,7 @@ public Plugin myinfo =
 	name = "ConsoleChatManager",
 	author = "Franc1sco Steam: franug, maxime1907, inGame, AntiTeal, Oylsister, .Rushaway",
 	description = "Interact with console messages",
-	version = "2.3.3",
+	version = "2.3.4",
 	url = ""
 };
 
@@ -546,9 +546,19 @@ public Action SayConsole(int client, const char[] command, int args)
 	return Plugin_Handled;
 }
 
+stock int MyCharToLower(int c)
+{
+	return ('A' <= c <= 'Z') ? (c + ('a' - 'A')) : c;
+}
+
+stock int MyCharToUpper(int c)
+{
+	return ('a' <= c <= 'z') ? (c - ('a' - 'A')) : c;
+}
+
 public bool CharEqual(int a, int b)
 {
-	if(a == b || a == CharToLower(b) || a == CharToUpper(b))
+	if (a == b || a == MyCharToUpper(b) || a == MyCharToLower(b))
 	{
 		return true;
 	}
