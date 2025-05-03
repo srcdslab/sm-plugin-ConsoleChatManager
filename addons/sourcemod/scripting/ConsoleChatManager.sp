@@ -85,7 +85,7 @@ public Plugin myinfo =
 	name = "ConsoleChatManager",
 	author = "Franc1sco Steam: franug, maxime1907, inGame, AntiTeal, Oylsister, .Rushaway",
 	description = "Interact with console messages",
-	version = "2.3.4",
+	version = "2.3.6",
 	url = ""
 };
 
@@ -352,12 +352,12 @@ public bool IsCountable(const char sMessage[MAXLENGTH_INPUT])
 	{
 		if(StringToInt(ChatArray[i]) != 0)
 		{
-			if(i + 1 <= words && (strcmp(ChatArray[i + 1], "s", false) == 0 || (CharEqual(ChatArray[i + 1][0], 's') && CharEqual(ChatArray[i + 1][1], 'e'))))
+			if(i + 1 <= words && (strcmp(ChatArray[i + 1], "s", false) == 0 || (IsCharEqualIgnoreCase(ChatArray[i + 1][0], 's') && IsCharEqualIgnoreCase(ChatArray[i + 1][1], 'e'))))
 			{
 				consoleNumber = StringToInt(ChatArray[i]);
 				isCountable = true;
 			}
-			if(!isCountable && i + 2 <= words && (strcmp(ChatArray[i + 2], "s", false) == 0 || (CharEqual(ChatArray[i + 2][0], 's') && CharEqual(ChatArray[i + 2][1], 'e'))))
+			if(!isCountable && i + 2 <= words && (strcmp(ChatArray[i + 2], "s", false) == 0 || (IsCharEqualIgnoreCase(ChatArray[i + 2][0], 's') && IsCharEqualIgnoreCase(ChatArray[i + 2][1], 'e'))))
 			{
 				consoleNumber = StringToInt(ChatArray[i]);
 				isCountable = true;
@@ -375,19 +375,19 @@ public bool IsCountable(const char sMessage[MAXLENGTH_INPUT])
 				{
 					if(IsCharNumeric(word[2]))
 					{
-						if(CharEqual(word[3], 's'))
+						if(IsCharEqualIgnoreCase(word[3], 's'))
 						{
 							consoleNumber = StringEnder(word, 5, len);
 							isCountable = true;
 						}
 					}
-					else if(CharEqual(word[2], 's'))
+					else if(IsCharEqualIgnoreCase(word[2], 's'))
 					{
 						consoleNumber = StringEnder(word, 4, len);
 						isCountable = true;
 					}
 				}
-				else if(CharEqual(word[1], 's'))
+				else if(IsCharEqualIgnoreCase(word[1], 's'))
 				{
 					consoleNumber = StringEnder(word, 3, len);
 					isCountable = true;
@@ -546,28 +546,9 @@ public Action SayConsole(int client, const char[] command, int args)
 	return Plugin_Handled;
 }
 
-stock int MyCharToLower(int c)
-{
-	return ('A' <= c <= 'Z') ? (c + ('a' - 'A')) : c;
-}
-
-stock int MyCharToUpper(int c)
-{
-	return ('a' <= c <= 'z') ? (c - ('a' - 'A')) : c;
-}
-
-public bool CharEqual(int a, int b)
-{
-	if (a == b || a == MyCharToUpper(b) || a == MyCharToLower(b))
-	{
-		return true;
-	}
-	return false;
-}
-
 public int StringEnder(char[] a, int b, int c)
 {
-	if(CharEqual(a[b], 'c'))
+	if(IsCharEqualIgnoreCase(a[b], 'c'))
 	{
 		a[c - 3] = '\0';
 	}
