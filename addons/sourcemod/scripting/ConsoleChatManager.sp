@@ -85,7 +85,7 @@ public Plugin myinfo =
 	name = "ConsoleChatManager",
 	author = "Franc1sco Steam: franug, maxime1907, inGame, AntiTeal, Oylsister, .Rushaway",
 	description = "Interact with console messages",
-	version = "2.3.6",
+	version = "2.3.7",
 	url = ""
 };
 
@@ -111,7 +111,7 @@ public void OnPluginStart()
 	g_cHudMapSymbols = CreateConVar("sm_consolechatmanager_hud_mapsymbols", "1", "Eliminate the original prefix and suffix from the map text when displayed in the Hud.", _, true, 0.0, true, 1.0);
 	g_cHudSymbols = CreateConVar("sm_consolechatmanager_hud_symbols", "1", "Determines whether >> and << are wrapped around the text.");
 	g_cHudHtmlColor = CreateConVar("sm_consolechatmanager_hud_htmlcolor", "#6CFF00", "Html color for second type of Hud Message");
-	g_cvHUDChannel = CreateConVar("sm_consolechatmanager_hud_channel", "0", "The channel for the hud if using DynamicChannels", _, true, 0.0, true, 6.0);
+	g_cvHUDChannel = CreateConVar("sm_consolechatmanager_hud_channel", "0", "The channel for the hud if using DynamicChannels", _, true, 0.0, true, 5.0);
 
 	g_cBlockSpam = CreateConVar("sm_consolechatmanager_block_spam", "1", "Blocks console messages that repeat the same message.", FCVAR_NONE, true, 0.0, true, 1.0);
 	g_cBlockSpamDelay = CreateConVar("sm_consolechatmanager_block_spam_delay", "1", "Time to wait before printing the same message", FCVAR_NONE, true, 1.0, true, 60.0);
@@ -721,7 +721,7 @@ stock void SendHudMsg(int client, const char[] szMessage, bool isCountdown)
 	int iHUDChannel = -1;
 
 	int iChannel = g_iHUDChannel;
-	if (iChannel < 0 || iChannel > 6)
+	if (iChannel < 0 || iChannel > 5)
 		iChannel = 0;
 
 	bDynamicAvailable = g_bPlugin_DynamicChannels && CanTestFeatures() && GetFeatureStatus(FeatureType_Native, "GetDynamicChannel") == FeatureStatus_Available;
