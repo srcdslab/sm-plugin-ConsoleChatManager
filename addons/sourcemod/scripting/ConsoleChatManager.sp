@@ -30,6 +30,14 @@
 
 #pragma newdecls required
 
+enum EHudNotify
+{
+	HUD_PRINTNOTIFY = 1,
+	HUD_PRINTCONSOLE = 2,
+	HUD_PRINTTALK = 3,
+	HUD_PRINTCENTER = 4
+}
+
 #define MAXLENGTH_INPUT		512
 #define NORMALHUD 1
 
@@ -457,8 +465,8 @@ public MRESReturn Detour_ClientPrint(Handle hParams)
 		return MRES_Ignored;
 
 	// Check if the print was sent to chat
-	int iDestination = DHookGetParam(hParams, 2);
-	if (iDestination != 3)
+	EHudNotify iDestination = view_as<EHudNotify>(DHookGetParam(hParams, 2));
+	if (iDestination != HUD_PRINTTALK)
 		return MRES_Ignored;
 
 	// Get chat message and pass through display function
