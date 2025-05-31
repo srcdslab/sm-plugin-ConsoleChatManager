@@ -1,17 +1,17 @@
 /*  Console Chat Manager
  *
  *  Copyright (C) 2022 Francisco 'Franc1sco' García, maxime1907
- * 
+ *
  * This program is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
- * Software Foundation, either version 3 of the License, or (at your option) 
+ * Software Foundation, either version 3 of the License, or (at your option)
  * any later version.
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT 
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
  * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License along with 
+ * You should have received a copy of the GNU General Public License along with
  * this program. If not, see http://www.gnu.org/licenses/.
  */
 
@@ -21,7 +21,8 @@
 #include <sdktools>
 #include <multicolors>
 #include <geoip>
-#include <utilshelper.inc>
+#include <utilshelper>
+#include <dhooks>
 
 #undef REQUIRE_PLUGIN
 #tryinclude <DynamicChannels>
@@ -60,6 +61,7 @@ char g_sColorlist[][] = {
 	"seashell", "sienna", "silver", "skyblue", "slateblue", "slategray", "slategrey", "snow",
 	"springgreen", "steelblue", "tan", "teal", "thistle", "tomato", "turquoise", "uncommon", "unique",
 	"unusual", "valve", "vintage", "violet", "wheat", "white", "whitesmoke", "yellow", "yellowgreen" };
+char g_sColorSymbols[][] = { "\x01", "\x03", "\x04", "\x05", "\x06" }; // \x07 and \x08 is ommitted because it requires additional check
 char g_sPath[PLATFORM_MAX_PATH];
 char g_sLastMessage[MAXLENGTH_INPUT] = "";
 char g_sConsoleTag[255];
@@ -80,12 +82,14 @@ int g_iHUDChannel, g_iBlockSpamDelay;
 Handle kv;
 Handle g_hTimerHandle, g_hHudSync;
 
-public Plugin myinfo = 
+DHookSetup g_hClientPrintDtr;
+
+public Plugin myinfo =
 {
 	name = "ConsoleChatManager",
-	author = "Franc1sco Steam: franug, maxime1907, inGame, AntiTeal, Oylsister, .Rushaway",
+	author = "Franc1sco Steam: franug, maxime1907, inGame, AntiTeal, Oylsister, .Rushaway, tilgep, koen",
 	description = "Interact with console messages",
-	version = "2.3.7",
+	version = "2.4",
 	url = ""
 };
 
@@ -151,6 +155,29 @@ public void OnPluginStart()
 	AddCommandListener(SayConsole, "say");
 
 	AutoExecConfig(true);
+
+	// ClientPrint detour
+	GameData gd;
+	if ((gd = new GameData("ConsoleChatManager.games")) == null)
+	{
+		LogError("[ConsoleChatManager] gamedata file not found or failed to load");
+		delete gd;
+		return;
+	}
+
+	if ((g_hClientPrintDtr = DynamicDetour.FromConf(gd, "ClientPrint")) == null)
+	{
+		LogError("[ConsoleChatManager] Failed to setup ClientPrint detour!");
+		delete gd;
+		return;
+	}
+	else
+	{
+		if (!DHookEnableDetour(g_hClientPrintDtr, false, Detour_ClientPrint))
+			LogError("[ConsoleChatManager] Failed to detour ClientPrint()");
+		else
+			LogMessage("[ConsoleChatManager] Successfully detoured ClientPrint()");
+	}
 }
 
 public void OnAllPluginsLoaded()
@@ -223,7 +250,7 @@ public int GetCurrentRoundTime()
 
 public int GetRoundTimeAtTimerEnd()
 {
-	return GetCurrentRoundTime() - g_iNumber; 
+	return GetCurrentRoundTime() - g_iNumber;
 }
 
 public void DeleteTimer()
@@ -278,7 +305,7 @@ public void ReadT()
 		KeyValuesToFile(kv, g_sPath);
 	else
 		FileToKeyValues(kv, g_sPath);
-	
+
 	CheckSounds();
 }
 
@@ -299,7 +326,7 @@ void CheckSounds()
 				FormatEx(buffer, 255, "sound/%s", buffer);
 				AddFileToDownloadsTable(buffer);
 			}
-			
+
 		} while (KvGotoNextKey(kv));
 	}
 
@@ -413,137 +440,28 @@ public Action SayConsole(int client, const char[] command, int args)
 	GetCmdArgString(sText, sizeof(sText));
 	StripQuotes(sText);
 
-	if (g_bBlockSpam)
-	{
-		int currentTime = GetTime();
-		if (strcmp(sText, g_sLastMessage, true) == 0)
-		{
-			if (g_iLastMessageTime != -1 && ((currentTime - g_iLastMessageTime) <= g_iBlockSpamDelay))
-			{
-				g_sLastMessage = sText;
-				g_iLastMessageTime = currentTime;
-				return Plugin_Handled;
-			}
-		}
-		g_sLastMessage = sText;
-		g_iLastMessageTime = currentTime;
-	}
+	SendServerMessage(sText, false);
 
-	char soundp[255], soundt[255];
-	if (g_bTranslation)
-	{
-		if(kv == INVALID_HANDLE)
-		{
-			ReadT();
-		}
-
-		if(!KvJumpToKey(kv, sText))
-		{
-			KvJumpToKey(kv, sText, true);
-			KvSetString(kv, "default", sText);
-			KvRewind(kv);
-			KeyValuesToFile(kv, g_sPath);
-			KvJumpToKey(kv, sText);
-		}
-
-		bool blocked = (KvGetNum(kv, "blocked", 0) ? true : false);
-
-		if(blocked)
-		{
-			KvRewind(kv);
-			return Plugin_Handled;
-		}
-
-		KvGetString(kv, "sound", soundp, sizeof(soundp), "default");
-		if(strcmp(soundp, "default") == 0)
-			FormatEx(soundt, 255, "common/talk.wav");
-		else
-			FormatEx(soundt, 255, soundp);
-	}
-
-	char sFinalText[1024];
-	char sCountryTag[3];
-	char sIP[26];
-	bool isCountable = IsCountable(sText);
-	bool containsDecimal = StringContainDecimal(sText);
-	bool isCountdown = !containsDecimal && isCountable;
-
-	for(int i = 1 ; i < MaxClients; i++)
-	{
-		if(IsClientInGame(i) && (!IsFakeClient(i) || IsClientSourceTV(i)))
-		{
-			if (g_bTranslation)
-			{
-				GetClientIP(i, sIP, sizeof(sIP));
-				GeoipCode2(sIP, sCountryTag);
-				KvGetString(kv, sCountryTag, sText, sizeof(sText), "LANGMISSING");
-
-				if (strcmp(sText, "LANGMISSING") == 0) KvGetString(kv, "default", sText, sizeof(sText));
-			}
-
-			FormatEx(sFinalText, sizeof(sFinalText), "%s", sText);
-
-			if (!g_bRemoveConsoleTag || g_bRemoveConsoleTag && (!ItContainSquarebracket(sText) || !ItContainColorcode(sText)))
-				FormatEx(sFinalText, sizeof(sFinalText), "%s%s", g_sConsoleTag, sText);
-
-			if(isCountable && GetRoundTimeAtTimerEnd() > 0)
-			{
-				float fMinutes = GetRoundTimeAtTimerEnd() / 60.0;
-				int minutes = RoundToFloor(fMinutes);
-				int seconds = GetRoundTimeAtTimerEnd() - minutes * 60;
-				char roundTimeText[32];
-
-				FormatEx(roundTimeText, sizeof(roundTimeText), " {orange}@ %i:%s%i", minutes, (seconds < 10 ? "0" : ""), seconds);
-				FormatEx(sFinalText, sizeof(sFinalText), "%s%s", sFinalText, roundTimeText);
-			}
-
-			CPrintToChat(i, sFinalText);
-
-			// Prepare HUD message
-			if (g_bEnableHud)
-			{
-				if (g_bHudMapSymbols)
-					RemoveDuplicatePrefixAndSuffix(sText);
-
-				RemoveTextInBraces(sText, true, true);
-
-				char szMessage[MAXLENGTH_INPUT + 10];
-				if (g_bHudSymbols)
-					FormatEx(szMessage, sizeof(szMessage), ">> %s <<", sText);
-				else
-					FormatEx(szMessage, sizeof(szMessage), "%s", sText);
-
-				PrepareHudMsg(i, szMessage, isCountdown);
-
-				if (isCountdown)
-					InitCountDown(szMessage);
-			}
-		}
-	}
-
-	if (g_bTranslation)
-	{
-		if(strcmp(soundp, "none", false) != 0)
-			EmitSoundToAll(soundt);
-
-		if(KvJumpToKey(kv, "hinttext"))
-		{
-			for(int i = 1 ; i < MaxClients; i++)
-				if(IsClientInGame(i) && (!IsFakeClient(i) || IsClientSourceTV(i)))
-				{
-					GetClientIP(i, sIP, sizeof(sIP));
-					GeoipCode2(sIP, sCountryTag);
-					KvGetString(kv, sCountryTag, sText, sizeof(sText), "LANGMISSING");
-
-					if (strcmp(sText, "LANGMISSING") == 0) KvGetString(kv, "default", sText, sizeof(sText));
-				
-					PrintHintText(i, sText);
-				}
-		}
-
-		KvRewind(kv);
-	}
 	return Plugin_Handled;
+}
+
+public MRESReturn Detour_ClientPrint(Handle hParams)
+{
+	// Check if message was sent from server console
+	int iPlayer = DHookGetParam(hParams, 1);
+	if (iPlayer != 0)
+		return MRES_Ignored;
+
+	// Check if the print was sent to chat
+	int iDestination = DHookGetParam(hParams, 2);
+	if (iDestination != 3)
+		return MRES_Ignored;
+
+	// Get chat message and pass through display function
+	char sBuffer[512];
+	DHookGetParamString(hParams, 3, sBuffer, sizeof(sBuffer));
+	SendServerMessage(sBuffer, true);
+	return MRES_Supercede;
 }
 
 public int StringEnder(char[] a, int b, int c)
@@ -744,7 +662,7 @@ stock bool ItContainSquarebracket(char[] szMessage)
 {
 	int i = 0;
 	bool foundOpeningBracket = false;
-	
+
 	// Iterate through the message until the end or until we find ']' if we've already found '['
 	while (szMessage[i] != '\0')
 	{
@@ -771,4 +689,216 @@ stock bool ItContainColorcode(char[] szMessage)
 	}
 
 	return false;
+}
+
+/**
+ * Removes color from a string
+ *
+ * @param sMessage			The string to clean up
+ * @return none
+ */
+stock void RemoveColorCodes(char[] sMessage)
+{
+	int len = strlen(sMessage);
+	int writePos = 0;
+
+	for (int i = 0; i < len; i++)
+	{
+		// Check if current character is bell character (\x07)
+		if (sMessage[i] == '\x07')
+		{
+			// Check if we have at least 6 more characters
+			if (i + 6 < len)
+			{
+				bool isValidHex = true;
+
+				// Check if next 6 characters are valid hex
+				for (int j = 1; j <= 6; j++)
+				{
+					char c = sMessage[i + j];
+					if (!((c >= '0' && c <= '9') ||
+						  (c >= 'A' && c <= 'F') ||
+						  (c >= 'a' && c <= 'f')))
+					{
+						isValidHex = false;
+						break;
+					}
+				}
+
+				if (isValidHex)
+				{
+					// Skip the bell character and 6 hex characters
+					i += 6;
+					continue;
+				}
+			}
+		}
+
+		// Copy character to new position
+		sMessage[writePos] = sMessage[i];
+		writePos++;
+	}
+
+	// Null terminate the string
+	sMessage[writePos] = '\0';
+
+	// Check if string has other color codes
+	for (int j = 0; j < sizeof(g_sColorSymbols); j++)
+		ReplaceString(sMessage, strlen(sMessage), g_sColorSymbols[j], "", false);
+}
+
+/**
+ * Display message to clients
+ *
+ * @param sMessage			The message to display
+ * @param bScript			If the chat message is vscript (so color codes are properly handled)
+ * @return none
+ */
+stock void SendServerMessage(const char[] sMessage, bool bScript = false)
+{
+	// Because color codes break number detection and hud formatting
+	// we create a separate "clean" string to store text w/o colors
+	char sText[MAXLENGTH_INPUT], sTrimText[MAXLENGTH_INPUT];
+
+	// Store raw color message to sText
+	strcopy(sText, sizeof(sText), sMessage);
+	StripQuotes(sText);
+
+	// Store the raw message to sTrimText then we clean up the string
+	strcopy(sTrimText, sizeof(sTrimText), sText);
+	RemoveColorCodes(sTrimText);
+
+	if (g_bBlockSpam)
+	{
+		int currentTime = GetTime();
+		if (strcmp(sText, g_sLastMessage, true) == 0)
+		{
+			if (g_iLastMessageTime != -1 && ((currentTime - g_iLastMessageTime) <= g_iBlockSpamDelay))
+			{
+				g_sLastMessage = sText;
+				g_iLastMessageTime = currentTime;
+				return;
+			}
+		}
+		g_sLastMessage = sText;
+		g_iLastMessageTime = currentTime;
+	}
+
+	char soundp[255], soundt[255];
+	if (g_bTranslation)
+	{
+		if (kv == INVALID_HANDLE)
+			ReadT();
+
+		if (!KvJumpToKey(kv, sText))
+		{
+			KvJumpToKey(kv, sText, true);
+			KvSetString(kv, "default", sText);
+			KvRewind(kv);
+			KeyValuesToFile(kv, g_sPath);
+			KvJumpToKey(kv, sText);
+		}
+
+		bool blocked = (KvGetNum(kv, "blocked", 0) ? true : false);
+		if (blocked)
+		{
+			KvRewind(kv);
+			return;
+		}
+
+		KvGetString(kv, "sound", soundp, sizeof(soundp), "default");
+		if (strcmp(soundp, "default") == 0)
+			FormatEx(soundt, 255, "common/talk.wav");
+		else
+			FormatEx(soundt, 255, soundp);
+	}
+
+	char sFinalText[1024];
+	char sCountryTag[3];
+	char sIP[26];
+	bool isCountable = IsCountable(sTrimText);
+	bool containsDecimal = StringContainDecimal(sTrimText);
+	bool isCountdown = !containsDecimal && isCountable;
+
+	for (int i = 1 ; i < MaxClients; i++)
+	{
+		if (!IsClientInGame(i) || IsFakeClient(i) || IsClientSourceTV(i))
+			continue;
+
+		if (g_bTranslation)
+		{
+			GetClientIP(i, sIP, sizeof(sIP));
+			GeoipCode2(sIP, sCountryTag);
+			KvGetString(kv, sCountryTag, sText, sizeof(sText), "LANGMISSING");
+
+			if (strcmp(sText, "LANGMISSING") == 0)
+				KvGetString(kv, "default", sText, sizeof(sText));
+		}
+
+		FormatEx(sFinalText, sizeof(sFinalText), "%s", sText);
+
+		if (!g_bRemoveConsoleTag || g_bRemoveConsoleTag && (!ItContainSquarebracket(sText) || !ItContainColorcode(sText)))
+			// Because vscript messages can use custom chat colors, don't add console tag in this case
+			if (!bScript)
+				FormatEx(sFinalText, sizeof(sFinalText), "%s%s", g_sConsoleTag, sText);
+
+		if (isCountable && GetRoundTimeAtTimerEnd() > 0)
+		{
+			float fMinutes = GetRoundTimeAtTimerEnd() / 60.0;
+			int minutes = RoundToFloor(fMinutes);
+			int seconds = GetRoundTimeAtTimerEnd() - minutes * 60;
+			char roundTimeText[32];
+
+			FormatEx(roundTimeText, sizeof(roundTimeText), " {orange}@ %i:%s%i", minutes, (seconds < 10 ? "0" : ""), seconds);
+			FormatEx(sFinalText, sizeof(sFinalText), "%s%s", sFinalText, roundTimeText);
+		}
+
+		CPrintToChat(i, sFinalText);
+
+		// Prepare HUD message
+		if (g_bEnableHud)
+		{
+			if (g_bHudMapSymbols)
+				RemoveDuplicatePrefixAndSuffix(sTrimText);
+
+			RemoveTextInBraces(sTrimText, true, true);
+
+			char szMessage[MAXLENGTH_INPUT + 10];
+			if (g_bHudSymbols)
+				FormatEx(szMessage, sizeof(szMessage), ">> %s <<", sTrimText);
+			else
+				FormatEx(szMessage, sizeof(szMessage), "%s", sTrimText);
+
+			PrepareHudMsg(i, szMessage, isCountdown);
+
+			if (isCountable)
+				InitCountDown(szMessage);
+		}
+	}
+
+	if (g_bTranslation)
+	{
+		if (strcmp(soundp, "none", false) != 0)
+			EmitSoundToAll(soundt);
+
+		if (KvJumpToKey(kv, "hinttext"))
+		{
+			for (int i = 1 ; i < MaxClients; i++)
+			{
+				if (!IsClientInGame(i) || IsFakeClient(i) || IsClientSourceTV(i))
+					continue;
+
+				GetClientIP(i, sIP, sizeof(sIP));
+				GeoipCode2(sIP, sCountryTag);
+				KvGetString(kv, sCountryTag, sText, sizeof(sText), "LANGMISSING");
+
+				if (strcmp(sText, "LANGMISSING") == 0)
+					KvGetString(kv, "default", sText, sizeof(sText));
+
+				PrintHintText(i, sText);
+			}
+		}
+
+		KvRewind(kv);
+	}
 }

@@ -1,0 +1,39 @@
+"Games"
+{
+    "cstrike"
+    {
+        "Signatures"
+        {
+            "ClientPrint"
+            {
+                "library"       "server"
+                "linux"         "@_ZL18Script_ClientPrintP9HSCRIPT__iPKc"
+            }
+        }
+        "Functions"
+        {
+            "ClientPrint"
+            {
+                "signature"     "ClientPrint"
+                "callconv"      "cdecl"
+                "return"        "void"
+                "this"          "ignore"
+                "arguments"
+                {
+                    "player"
+                    {
+                        "type"  "int"
+                    }
+                    "destination"
+                    {
+                        "type"  "int"
+                    }
+                    "message"
+                    {
+                        "type"  "charptr"
+                    }
+                }
+            }
+        }
+    }
+}
