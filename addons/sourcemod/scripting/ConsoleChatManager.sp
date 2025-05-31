@@ -704,10 +704,9 @@ stock void RemoveColorCodes(char[] sMessage)
 
 	for (int i = 0; i < len; i++)
 	{
-		// Check if current character is bell character (\x07)
+		// Check for bell character (\x07) followed by 6 hex chars
 		if (sMessage[i] == '\x07')
 		{
-			// Check if we have at least 6 more characters
 			if (i + 6 < len)
 			{
 				bool isValidHex = true;
@@ -729,6 +728,34 @@ stock void RemoveColorCodes(char[] sMessage)
 				{
 					// Skip the bell character and 6 hex characters
 					i += 6;
+					continue;
+				}
+			}
+		}
+		// Check for \x08 character followed by 8 hex chars
+		else if (sMessage[i] == '\x08')
+		{
+			if (i + 8 < len)
+			{
+				bool isValidHex = true;
+
+				// Check if next 8 characters are valid hex
+				for (int j = 1; j <= 8; j++)
+				{
+					char c = sMessage[i + j];
+					if (!((c >= '0' && c <= '9') ||
+						  (c >= 'A' && c <= 'F') ||
+						  (c >= 'a' && c <= 'f')))
+					{
+						isValidHex = false;
+						break;
+					}
+				}
+
+				if (isValidHex)
+				{
+					// Skip the \x08 character and 8 hex characters
+					i += 8;
 					continue;
 				}
 			}
