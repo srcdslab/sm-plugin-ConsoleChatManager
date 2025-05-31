@@ -168,7 +168,6 @@ public void OnPluginStart()
 	if ((g_hClientPrintDtr = DynamicDetour.FromConf(gd, "ClientPrint")) == null)
 	{
 		LogError("[ConsoleChatManager] Failed to setup ClientPrint detour!");
-		delete gd;
 		return;
 	}
 	else
