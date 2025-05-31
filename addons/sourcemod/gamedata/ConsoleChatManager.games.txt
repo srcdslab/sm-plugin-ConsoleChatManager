@@ -4,9 +4,15 @@
     {
         "Signatures"
         {
+            // Search for the string: "Print a client message" (aPrintAClientMe) to find VScriptServerInit, look for second mov offset after four calls.
+            // mov     dword_105A0760, offset sub_1026D920
+            // mov     dword_105A0764, eax
+            // mov     dword_105A0768, eax
+            // mov     dword_105A076C, eax
             "ClientPrint"
             {
                 "library"       "server"
+                "windows"       "\x55\x8B\xEC\x83\x7D\x08\x00\x74\x2A\xA1\x2A\x2A\x2A\x2A\x56\x6A\x00\x8B\x30\xE8\x2A\x2A\x2A\x2A\x8B\x0D\x2A\x2A\x2A\x2A\x83\xC4\x04\x50\xFF\x75\x08\xFF\x56\x60\x5E\x85\xC0\x74\x2A\x6A\x00"
                 "linux"         "@_ZL18Script_ClientPrintP9HSCRIPT__iPKc"
             }
         }
