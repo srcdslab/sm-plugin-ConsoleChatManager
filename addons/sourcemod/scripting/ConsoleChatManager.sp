@@ -156,18 +156,23 @@ public void OnPluginStart()
 
 	AutoExecConfig(true);
 
+	// For now VScript detour is only supported for Counter-Strike: Source
+	EngineVersion iEngine = GetEngineVersion();
+	if (iEngine != Engine_CSS)
+		return;
+
 	// ClientPrint detour
 	GameData gd;
 	if ((gd = new GameData("ConsoleChatManager.games")) == null)
 	{
 		LogError("[ConsoleChatManager] gamedata file not found or failed to load");
-		delete gd;
 		return;
 	}
 
 	if ((g_hClientPrintDtr = DynamicDetour.FromConf(gd, "ClientPrint")) == null)
 	{
 		LogError("[ConsoleChatManager] Failed to setup ClientPrint detour!");
+		delete gd;
 		return;
 	}
 	else
@@ -691,9 +696,32 @@ stock bool ItContainColorcode(char[] szMessage)
 }
 
 /**
+ * Checks if a sequence of characters are valid hex characters
+ *
+ * @param sMessage      The string to check
+ * @param startPos      Starting position in the string
+ * @param length        Number of characters to check
+ * @return             True if all characters are valid hex, false otherwise
+ */
+stock bool IsValidHexSequence(const char[] sMessage, int startPos, int length)
+{
+	for (int j = 0; j < length; j++)
+	{
+		char c = sMessage[startPos + j];
+		bool isDigit = (c >= '0' && c <= '9');
+		bool isUpperHex = (c >= 'A' && c <= 'F');
+		bool isLowerHex = (c >= 'a' && c <= 'f');
+		
+		if (!isDigit && !isUpperHex && !isLowerHex)
+			return false;
+	}
+	return true;
+}
+
+/**
  * Removes color from a string
  *
- * @param sMessage			The string to clean up
+ * @param sMessage          The string to clean up
  * @return none
  */
 stock void RemoveColorCodes(char[] sMessage)
@@ -704,60 +732,16 @@ stock void RemoveColorCodes(char[] sMessage)
 	for (int i = 0; i < len; i++)
 	{
 		// Check for bell character (\x07) followed by 6 hex chars
-		if (sMessage[i] == '\x07')
+		if (sMessage[i] == '\x07' && i + 6 < len && IsValidHexSequence(sMessage, i + 1, 6))
 		{
-			if (i + 6 < len)
-			{
-				bool isValidHex = true;
-
-				// Check if next 6 characters are valid hex
-				for (int j = 1; j <= 6; j++)
-				{
-					char c = sMessage[i + j];
-					if (!((c >= '0' && c <= '9') ||
-						  (c >= 'A' && c <= 'F') ||
-						  (c >= 'a' && c <= 'f')))
-					{
-						isValidHex = false;
-						break;
-					}
-				}
-
-				if (isValidHex)
-				{
-					// Skip the bell character and 6 hex characters
-					i += 6;
-					continue;
-				}
-			}
+			i += 6;
+			continue;
 		}
 		// Check for \x08 character followed by 8 hex chars
-		else if (sMessage[i] == '\x08')
+		else if (sMessage[i] == '\x08' && i + 8 < len && IsValidHexSequence(sMessage, i + 1, 8))
 		{
-			if (i + 8 < len)
-			{
-				bool isValidHex = true;
-
-				// Check if next 8 characters are valid hex
-				for (int j = 1; j <= 8; j++)
-				{
-					char c = sMessage[i + j];
-					if (!((c >= '0' && c <= '9') ||
-						  (c >= 'A' && c <= 'F') ||
-						  (c >= 'a' && c <= 'f')))
-					{
-						isValidHex = false;
-						break;
-					}
-				}
-
-				if (isValidHex)
-				{
-					// Skip the \x08 character and 8 hex characters
-					i += 8;
-					continue;
-				}
-			}
+			i += 8;
+			continue;
 		}
 
 		// Copy character to new position
