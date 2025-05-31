@@ -458,7 +458,7 @@ public MRESReturn Detour_ClientPrint(Handle hParams)
 		return MRES_Ignored;
 
 	// Get chat message and pass through display function
-	char sBuffer[512];
+	char sBuffer[MAXLENGTH_INPUT];
 	DHookGetParamString(hParams, 3, sBuffer, sizeof(sBuffer));
 	SendServerMessage(sBuffer, true);
 	return MRES_Supercede;
