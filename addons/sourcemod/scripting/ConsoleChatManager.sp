@@ -49,26 +49,7 @@ ConVar g_cHudDuration, g_cHudDurationFadeOut;
 ConVar g_cvHUDChannel;
 
 char g_sBlacklist[][] = { "recharge", "recast", "cooldown", "cool" };
-char g_sColorlist[][] = {
-	"aliceblue", "allies", "ancient", "antiquewhite", "aqua", "aquamarine", "arcana", "axis", "azure",
-	"beige", "bisque", "black", "blanchedalmond", "blue", "blueviolet", "brown", "burlywood",
-	"cadetblue", "chartreuse", "chocolate", "coral", "cornflowerblue", "cornsilk", "crimson", "cyan",
-	"darkblue", "darkcyan", "darkgoldenrod", "darkgray", "darkgreen", "darkkhaki", "darkmagenta", "darkolivegreen",
-	"darkorange", "darkorchid", "darkred", "darksalmon", "darkseagreen", "darkslateblue", "darkslategray", "darkturquoise",
-	"darkviolet", "deeppink", "deepskyblue", "dimgray", "dodgerblue", "exalted", "firebrick", "floralwhite",
-	"forestgreen", "fuchsia", "fullblue", "fullred", "gainsboro", "ghostwhite", "gold", "goldenrod",
-	"gray", "grey", "green", "greenyellow", "honeydew", "hotpink", "indianred", "indigo", "ivory",
-	"khaki", "lavender", "lavenderblush", "lawngreen", "lemonchiffon", "lightblue", "lightcoral", "lightcyan",
-	"lightgoldenrodyellow", "lightgray", "lightgreen", "lightpink", "lightsalmon", "lightseagreen", "lightskyblue", "lightslategray",
-	"lightslategrey", "lightsteelblue", "lightyellow", "lime", "limegreen", "linen", "magenta", "maroon",
-	"mediumaquamarine", "mediumblue", "mediumorchid", "mediumpurple", "mediumseagreen", "mediumslateblue", "mediumspringgreen", "mediumturquoise",
-	"mediumvioletred", "midnightblue", "mintcream", "mistyrose", "moccasin", "navajowhite", "navy", "normal", "oldlace",
-	"olive", "olivedrab", "orange", "orangered", "orchid", "palegoldenrod", "palegreen", "paleturquoise",
-	"palevioletred", "papayawhip", "peachpuff", "peru", "pink", "plum", "powderblue", "purple",
-	"rare", "red", "rosybrown", "royalblue", "saddlebrown", "salmon", "sandybrown", "seagreen",
-	"seashell", "sienna", "silver", "skyblue", "slateblue", "slategray", "slategrey", "snow",
-	"springgreen", "steelblue", "tan", "teal", "thistle", "tomato", "turquoise", "uncommon", "unique",
-	"unusual", "valve", "vintage", "violet", "wheat", "white", "whitesmoke", "yellow", "yellowgreen" };
+StringMap g_hColorMap;
 char g_sColorSymbols[][] = { "\x01", "\x03", "\x04", "\x05", "\x06" }; // \x07 and \x08 is ommitted because it requires additional check
 char g_sPath[PLATFORM_MAX_PATH];
 char g_sLastMessage[MAXLENGTH_INPUT] = "";
@@ -97,7 +78,7 @@ public Plugin myinfo =
 	name = "ConsoleChatManager",
 	author = "Franc1sco Steam: franug, maxime1907, inGame, AntiTeal, Oylsister, .Rushaway, tilgep, koen",
 	description = "Interact with console messages",
-	version = "2.4",
+	version = "2.4.1",
 	url = ""
 };
 
@@ -107,6 +88,8 @@ public void OnPluginStart()
 
 	DeleteTimer();
 	g_hHudSync = CreateHudSynchronizer();
+
+	InitColorMap();
 
 	RegAdminCmd("sm_ccm_reloadcfg", Command_ReloadConfig, ADMFLAG_CONFIG, "Reload translations file");
 
@@ -190,6 +173,12 @@ public void OnPluginStart()
 		else
 			LogMessage("[ConsoleChatManager] Successfully detoured ClientPrint()");
 	}
+}
+
+public void OnPluginEnd()
+{
+	if (g_hColorMap != null)
+		delete g_hColorMap;
 }
 
 public void OnAllPluginsLoaded()
@@ -693,11 +682,23 @@ stock bool ItContainSquarebracket(char[] szMessage)
 stock bool ItContainColorcode(char[] szMessage)
 {
 	char szColor[64];
-	for (int i = 0; i < sizeof(g_sColorlist); i++)
+	int dummy;
+	
+	// Search through the message for braces
+	int start = 0;
+	while ((start = StrContains(szMessage[start], "{", false)) != -1)
 	{
-		FormatEx(szColor, sizeof(szColor), "{%s}", g_sColorlist[i]);
-		if(StrContains(szMessage, szColor, false) != -1)
-			return true;
+		start++; // Skip opening brace
+		int end = StrContains(szMessage[start], "}", false);
+		if (end != -1)
+		{
+			// Extract color name
+			strcopy(szColor, end + 1, szMessage[start]);
+			// Check if it's a valid color in the StringMap
+			if (g_hColorMap.GetValue(szColor, dummy))
+				return true;
+		}
+		start++; // Skip current position
 	}
 
 	return false;
@@ -918,5 +919,37 @@ stock void SendServerMessage(const char[] sMessage, bool bScript = false)
 		}
 
 		KvRewind(kv);
+	}
+}
+
+void InitColorMap()
+{
+	g_hColorMap = CreateTrie();
+	
+	char colors[][] = {
+		"aliceblue", "allies", "ancient", "antiquewhite", "aqua", "aquamarine", "arcana", "axis", "azure",
+		"beige", "bisque", "black", "blanchedalmond", "blue", "blueviolet", "brown", "burlywood",
+		"cadetblue", "chartreuse", "chocolate", "coral", "cornflowerblue", "cornsilk", "crimson", "cyan",
+		"darkblue", "darkcyan", "darkgoldenrod", "darkgray", "darkgreen", "darkkhaki", "darkmagenta", "darkolivegreen",
+		"darkorange", "darkorchid", "darkred", "darksalmon", "darkseagreen", "darkslateblue", "darkslategray", "darkturquoise",
+		"darkviolet", "deeppink", "deepskyblue", "dimgray", "dodgerblue", "exalted", "firebrick", "floralwhite",
+		"forestgreen", "fuchsia", "fullblue", "fullred", "gainsboro", "ghostwhite", "gold", "goldenrod",
+		"gray", "grey", "green", "greenyellow", "honeydew", "hotpink", "indianred", "indigo", "ivory",
+		"khaki", "lavender", "lavenderblush", "lawngreen", "lemonchiffon", "lightblue", "lightcoral", "lightcyan",
+		"lightgoldenrodyellow", "lightgray", "lightgreen", "lightpink", "lightsalmon", "lightseagreen", "lightskyblue", "lightslategray",
+		"lightslategrey", "lightsteelblue", "lightyellow", "lime", "limegreen", "linen", "magenta", "maroon",
+		"mediumaquamarine", "mediumblue", "mediumorchid", "mediumpurple", "mediumseagreen", "mediumslateblue", "mediumspringgreen", "mediumturquoise",
+		"mediumvioletred", "midnightblue", "mintcream", "mistyrose", "moccasin", "navajowhite", "navy", "normal", "oldlace",
+		"olive", "olivedrab", "orange", "orangered", "orchid", "palegoldenrod", "palegreen", "paleturquoise",
+		"palevioletred", "papayawhip", "peachpuff", "peru", "pink", "plum", "powderblue", "purple",
+		"rare", "red", "rosybrown", "royalblue", "saddlebrown", "salmon", "sandybrown", "seagreen",
+		"seashell", "sienna", "silver", "skyblue", "slateblue", "slategray", "slategrey", "snow",
+		"springgreen", "steelblue", "tan", "teal", "thistle", "tomato", "turquoise", "uncommon", "unique",
+		"unusual", "valve", "vintage", "violet", "wheat", "white", "whitesmoke", "yellow", "yellowgreen"
+	};
+	
+	for (int i = 0; i < sizeof(colors); i++)
+	{
+		g_hColorMap.SetValue(colors[i], 1);
 	}
 }
