@@ -38,7 +38,7 @@ enum EHudNotify
 	HUD_PRINTCENTER = 4
 }
 
-#define MAXLENGTH_INPUT		512
+#define MAXLENGTH_INPUT 512
 #define NORMALHUD 1
 
 ConVar g_ConsoleMessage, g_EnableTranslation, g_cRemoveConsoleTag;
@@ -256,7 +256,7 @@ public int GetRoundTimeAtTimerEnd()
 
 public void DeleteTimer()
 {
-	if(g_hTimerHandle != INVALID_HANDLE)
+	if (g_hTimerHandle != INVALID_HANDLE)
 	{
 		KillTimer(g_hTimerHandle);
 		g_hTimerHandle = INVALID_HANDLE;
@@ -294,7 +294,7 @@ public void ReadT()
 	GetCurrentMap(map, sizeof(map));
 	BuildPath(Path_SM, g_sPath, sizeof(g_sPath), "configs/consolechatmanager/%s.txt", map);
 
-	if(!FileExists(g_sPath))
+	if (!FileExists(g_sPath))
 	{
 		StringToLowerCase(map);
 		BuildPath(Path_SM, g_sPath, sizeof(g_sPath), "configs/consolechatmanager/%s.txt", map);
@@ -302,7 +302,7 @@ public void ReadT()
 
 	kv = CreateKeyValues("Console_C");
 	// File not found, create the file
-	if(!FileExists(g_sPath))
+	if (!FileExists(g_sPath))
 		KeyValuesToFile(kv, g_sPath);
 	else
 		FileToKeyValues(kv, g_sPath);
@@ -315,7 +315,7 @@ void CheckSounds()
 	PrecacheSound("common/talk.wav", false);
 
 	char buffer[255];
-	if(KvGotoFirstSubKey(kv))
+	if (KvGotoFirstSubKey(kv))
 	{
 		do
 		{
@@ -338,10 +338,8 @@ public bool CheckStringBlacklist(const char[] string)
 {
 	for (int i = 0; i < sizeof(g_sBlacklist); i++)
 	{
-		if(StrContains(string, g_sBlacklist[i], false) != -1)
-		{
+		if (StrContains(string, g_sBlacklist[i], false) != -1)
 			return true;
-		}
 	}
 	return false;
 }
@@ -355,74 +353,75 @@ public bool IsCountable(const char sMessage[MAXLENGTH_INPUT])
 	for (int i = 0; i < sizeof(sMessage); i++)
 	{
 		if (IsCharAlpha(sMessage[i]) || IsCharNumeric(sMessage[i]) || IsCharSpace(sMessage[i]))
-		{
 			FilterText[filterPos++] = sMessage[i];
-		}
 	}
 	FilterText[filterPos] = '\0';
 	TrimString(FilterText);
 
-	if(CheckStringBlacklist(sMessage))
+	if (CheckStringBlacklist(sMessage))
 		return isCountable;
 
 	int words = ExplodeString(FilterText, " ", ChatArray, sizeof(ChatArray), sizeof(ChatArray[]));
 
-	if(words == 1)
+	if (words == 1)
 	{
-		if(StringToInt(ChatArray[0]) != 0)
+		if (StringToInt(ChatArray[0]) != 0)
 		{
 			isCountable = true;
 			consoleNumber = StringToInt(ChatArray[0]);
 		}
 	}
 
-	for(int i = 0; i <= words; i++)
+	for (int i = 0; i <= words; i++)
 	{
-		if(StringToInt(ChatArray[i]) != 0)
+		if (StringToInt(ChatArray[i]) != 0)
 		{
-			if(i + 1 <= words && (strcmp(ChatArray[i + 1], "s", false) == 0 || (IsCharEqualIgnoreCase(ChatArray[i + 1][0], 's') && IsCharEqualIgnoreCase(ChatArray[i + 1][1], 'e'))))
+			if (i + 1 <= words && (strcmp(ChatArray[i + 1], "s", false) == 0 || (IsCharEqualIgnoreCase(ChatArray[i + 1][0], 's') && IsCharEqualIgnoreCase(ChatArray[i + 1][1], 'e'))))
 			{
 				consoleNumber = StringToInt(ChatArray[i]);
 				isCountable = true;
 			}
-			if(!isCountable && i + 2 <= words && (strcmp(ChatArray[i + 2], "s", false) == 0 || (IsCharEqualIgnoreCase(ChatArray[i + 2][0], 's') && IsCharEqualIgnoreCase(ChatArray[i + 2][1], 'e'))))
+
+			if (!isCountable && i + 2 <= words && (strcmp(ChatArray[i + 2], "s", false) == 0 || (IsCharEqualIgnoreCase(ChatArray[i + 2][0], 's') && IsCharEqualIgnoreCase(ChatArray[i + 2][1], 'e'))))
 			{
 				consoleNumber = StringToInt(ChatArray[i]);
 				isCountable = true;
 			}
 		}
-		if(!isCountable)
+	
+		if (!isCountable)
 		{
 			char word[MAXLENGTH_INPUT];
 			strcopy(word, sizeof(word), ChatArray[i]);
 			int len = strlen(word);
 
-			if(IsCharNumeric(word[0]))
+			if (IsCharNumeric(word[0]))
 			{
-				if(IsCharNumeric(word[1]))
+				if (IsCharNumeric(word[1]))
 				{
-					if(IsCharNumeric(word[2]))
+					if (IsCharNumeric(word[2]))
 					{
-						if(IsCharEqualIgnoreCase(word[3], 's'))
+						if (IsCharEqualIgnoreCase(word[3], 's'))
 						{
 							consoleNumber = StringEnder(word, 5, len);
 							isCountable = true;
 						}
 					}
-					else if(IsCharEqualIgnoreCase(word[2], 's'))
+					else if (IsCharEqualIgnoreCase(word[2], 's'))
 					{
 						consoleNumber = StringEnder(word, 4, len);
 						isCountable = true;
 					}
 				}
-				else if(IsCharEqualIgnoreCase(word[1], 's'))
+				else if (IsCharEqualIgnoreCase(word[1], 's'))
 				{
 					consoleNumber = StringEnder(word, 3, len);
 					isCountable = true;
 				}
 			}
 		}
-		if(isCountable)
+
+		if (isCountable)
 		{
 			g_iNumber = consoleNumber;
 			g_iOnumber = consoleNumber;
@@ -467,14 +466,11 @@ public MRESReturn Detour_ClientPrint(Handle hParams)
 
 public int StringEnder(char[] a, int b, int c)
 {
-	if(IsCharEqualIgnoreCase(a[b], 'c'))
-	{
+	if (IsCharEqualIgnoreCase(a[b], 'c'))
 		a[c - 3] = '\0';
-	}
 	else
-	{
 		a[c - 1] = '\0';
-	}
+
 	return StringToInt(a);
 }
 
@@ -494,10 +490,8 @@ public Action RepeatMsg(Handle timer, Handle pack)
 		DeleteTimer();
 		for (int i = 1; i <= MAXPLAYERS + 1; i++)
 		{
-			if(IsValidClient(i, false, false, false))
-			{
+			if (IsValidClient(i, false, false, false))
 				ClearSyncHud(i, g_hHudSync);
-			}
 		}
 		return Plugin_Handled;
 	}
@@ -513,9 +507,7 @@ public Action RepeatMsg(Handle timer, Handle pack)
 	ReplaceString(string, sizeof(string), sONumber, sNumber);
 
 	for (int i = 1; i <= MAXPLAYERS + 1; i++)
-	{
 		SendHudMsg(i, string, true);
-	}
 
 	return Plugin_Handled;
 }
@@ -601,9 +593,7 @@ stock void RemoveDuplicatePrefixAndSuffix(char[] sBuffer)
 		// Remove duplicates
 		int newSize = length - prefixLength - suffixLength;
 		for (int i = 0; i < newSize; i++)
-		{
 			sBuffer[i] = sBuffer[i + prefixLength];
-		}
 
 		sBuffer[newSize] = '\0';
 	}
@@ -683,7 +673,7 @@ stock bool ItContainColorcode(char[] szMessage)
 {
 	char szColor[64];
 	int dummy;
-	
+
 	// Search through the message for braces
 	int start = 0;
 	while ((start = StrContains(szMessage[start], "{", false)) != -1)
@@ -720,7 +710,7 @@ stock bool IsValidHexSequence(const char[] sMessage, int startPos, int length)
 		bool isDigit = (c >= '0' && c <= '9');
 		bool isUpperHex = (c >= 'A' && c <= 'F');
 		bool isLowerHex = (c >= 'a' && c <= 'f');
-		
+
 		if (!isDigit && !isUpperHex && !isLowerHex)
 			return false;
 	}
@@ -925,7 +915,7 @@ stock void SendServerMessage(const char[] sMessage, bool bScript = false)
 void InitColorMap()
 {
 	g_hColorMap = CreateTrie();
-	
+
 	char colors[][] = {
 		"aliceblue", "allies", "ancient", "antiquewhite", "aqua", "aquamarine", "arcana", "axis", "azure",
 		"beige", "bisque", "black", "blanchedalmond", "blue", "blueviolet", "brown", "burlywood",
@@ -947,9 +937,7 @@ void InitColorMap()
 		"springgreen", "steelblue", "tan", "teal", "thistle", "tomato", "turquoise", "uncommon", "unique",
 		"unusual", "valve", "vintage", "violet", "wheat", "white", "whitesmoke", "yellow", "yellowgreen"
 	};
-	
+
 	for (int i = 0; i < sizeof(colors); i++)
-	{
 		g_hColorMap.SetValue(colors[i], 1);
-	}
 }
