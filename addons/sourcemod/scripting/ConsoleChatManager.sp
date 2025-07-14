@@ -78,7 +78,7 @@ public Plugin myinfo =
 	name = "ConsoleChatManager",
 	author = "Franc1sco Steam: franug, maxime1907, inGame, AntiTeal, Oylsister, .Rushaway, tilgep, koen",
 	description = "Interact with console messages",
-	version = "2.4.1",
+	version = "2.4.2",
 	url = ""
 };
 
@@ -202,6 +202,13 @@ public void OnMapStart()
 {
 	if (g_bTranslation)
 		ReadT();
+}
+
+public void OnMapEnd()
+{
+	if (g_hColorMap != null)
+		delete g_hColorMap;
+	g_hColorMap = new StringMap();
 }
 
 public void OnConVarChanged(ConVar convar, char[] oldValue, char[] newValue)
@@ -381,14 +388,12 @@ public bool IsCountable(const char sMessage[MAXLENGTH_INPUT])
 				consoleNumber = StringToInt(ChatArray[i]);
 				isCountable = true;
 			}
-
 			if (!isCountable && i + 2 <= words && (strcmp(ChatArray[i + 2], "s", false) == 0 || (IsCharEqualIgnoreCase(ChatArray[i + 2][0], 's') && IsCharEqualIgnoreCase(ChatArray[i + 2][1], 'e'))))
 			{
 				consoleNumber = StringToInt(ChatArray[i]);
 				isCountable = true;
 			}
 		}
-	
 		if (!isCountable)
 		{
 			char word[MAXLENGTH_INPUT];
@@ -420,7 +425,6 @@ public bool IsCountable(const char sMessage[MAXLENGTH_INPUT])
 				}
 			}
 		}
-
 		if (isCountable)
 		{
 			g_iNumber = consoleNumber;
@@ -470,7 +474,6 @@ public int StringEnder(char[] a, int b, int c)
 		a[c - 3] = '\0';
 	else
 		a[c - 1] = '\0';
-
 	return StringToInt(a);
 }
 
@@ -914,7 +917,7 @@ stock void SendServerMessage(const char[] sMessage, bool bScript = false)
 
 void InitColorMap()
 {
-	g_hColorMap = CreateTrie();
+	g_hColorMap = new StringMap();
 
 	char colors[][] = {
 		"aliceblue", "allies", "ancient", "antiquewhite", "aqua", "aquamarine", "arcana", "axis", "azure",
