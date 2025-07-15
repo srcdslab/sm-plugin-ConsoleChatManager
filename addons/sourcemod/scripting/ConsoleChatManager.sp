@@ -89,8 +89,6 @@ public void OnPluginStart()
 	DeleteTimer();
 	g_hHudSync = CreateHudSynchronizer();
 
-	InitColorMap();
-
 	RegAdminCmd("sm_ccm_reloadcfg", Command_ReloadConfig, ADMFLAG_CONFIG, "Reload translations file");
 
 	g_ConsoleMessage = CreateConVar("sm_consolechatmanager_tag", "{green}[NARRATOR] {white}", "The tag that will be printed instead of the console default messages");
@@ -202,12 +200,15 @@ public void OnMapStart()
 {
 	if (g_bTranslation)
 		ReadT();
+
+	InitColorMap();
 }
 
 public void OnMapEnd()
 {
 	if (g_hColorMap != null)
 		delete g_hColorMap;
+
 	g_hColorMap = new StringMap();
 }
 
@@ -917,6 +918,9 @@ stock void SendServerMessage(const char[] sMessage, bool bScript = false)
 
 void InitColorMap()
 {
+	if (g_hColorMap != null)
+		delete g_hColorMap;
+
 	g_hColorMap = new StringMap();
 
 	char colors[][] = {
