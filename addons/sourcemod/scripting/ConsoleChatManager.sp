@@ -50,6 +50,7 @@ ConVar g_cvHUDChannel;
 
 char g_sBlacklist[][] = { "recharge", "recast", "cooldown", "cool" };
 StringMap g_hColorMap;
+StringMap g_hHexMap;
 char g_sColorSymbols[][] = { "\x01", "\x03", "\x04", "\x05", "\x06" }; // \x07 and \x08 is ommitted because it requires additional check
 char g_sPath[PLATFORM_MAX_PATH];
 char g_sLastMessage[MAXLENGTH_INPUT] = "";
@@ -177,6 +178,7 @@ public void OnPluginEnd()
 {
 	if (g_hColorMap != null)
 		delete g_hColorMap;
+	delete g_hHexMap;
 }
 
 public void OnAllPluginsLoaded()
@@ -210,6 +212,9 @@ public void OnMapEnd()
 		delete g_hColorMap;
 
 	g_hColorMap = new StringMap();
+
+	delete g_hHexMap;
+	g_hHexMap = new StringMap();
 }
 
 public void OnConVarChanged(ConVar convar, char[] oldValue, char[] newValue)
@@ -728,20 +733,17 @@ stock bool ItContainColorcode(const char[] szMessage)
  * @param sMessage      The string to check
  * @param startPos      Starting position in the string
  * @param length        Number of characters to check
- * @return             True if all characters are valid hex, false otherwise
+ * @return             	True if all characters are valid hex, false otherwise
  */
 stock bool IsValidHexSequence(const char[] sMessage, int startPos, int length)
 {
-	for (int j = 0; j < length; j++)
+	bool dummy;
+	for (int i = 0; i < length; i++)
 	{
-		char c = sMessage[startPos + j];
-		bool isDigit = (c >= '0' && c <= '9');
-		bool isUpperHex = (c >= 'A' && c <= 'F');
-		bool isLowerHex = (c >= 'a' && c <= 'f');
-
-		if (!isDigit && !isUpperHex && !isLowerHex)
+		if (!g_hHexMap.GetValue(sMessage[startPos + i], dummy))
 			return false;
 	}
+
 	return true;
 }
 
@@ -971,4 +973,11 @@ void InitColorMap()
 
 	for (int i = 0; i < sizeof(colors); i++)
 		g_hColorMap.SetValue(colors[i], 1);
+
+	delete g_hHexMap;
+	g_hHexMap = new StringMap();
+
+	static const char HexChar[][] = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F", "a", "b", "c", "d", "e", "f"};
+	for (int i = 0; i < sizeof(HexChar); i++)
+		g_hHexMap.SetValue(HexChar[i], true);
 }
