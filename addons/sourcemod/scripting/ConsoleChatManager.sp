@@ -658,23 +658,37 @@ stock void SendHudMsg(int client, const char[] szMessage, bool isCountdown)
 	}
 }
 
-stock bool ItContainSquarebracket(char[] szMessage)
+/**
+ * Checks if a message contains square brackets with content after them
+ * Optimized to do single pass through string with early returns
+ *
+ * @param szMessage    The message to check
+ * @return             True if valid square brackets with content are found
+ */
+stock bool ItContainSquarebracket(const char[] szMessage)
 {
-	int i = 0;
-	bool foundOpeningBracket = false;
+	int length = strlen(szMessage);
+	if (length < 3) // Needs at least 3 chars: [x]
+		return false;
 
-	// Iterate through the message until the end or until we find ']' if we've already found '['
-	while (szMessage[i] != '\0')
+	for (int i = 0; i < length - 2; i++) // -2 because we need room for ] and content
 	{
-		if (szMessage[i] == '[')
-			foundOpeningBracket = true;
-		// If we've found a ']' and we've previously found a '[', check if there's content after ']'
-		else if (szMessage[i] == ']' && foundOpeningBracket && strlen(szMessage) > i + 1)
-			return true;
-		i++;
-	}
+		if (szMessage[i] != '[')
+			continue;
 
-	// If we reach here, either '[' or ']' wasn't found or there was no content after ']'
+		// Look for matching ] with content after
+		for (int j = i + 1; j < length - 1; j++)
+		{
+			if (szMessage[j] == ']')
+			{
+				// Found closing bracket, check if there's content after
+				if (szMessage[j + 1] != '\0')
+					return true;
+
+				break; // No content after ], try next [
+			}
+		}
+	}
 	return false;
 }
 
