@@ -48,10 +48,10 @@ ConVar g_cHudMapSymbols, g_cHudSymbols;
 ConVar g_cHudDuration, g_cHudDurationFadeOut;
 ConVar g_cvHUDChannel;
 
-char g_sBlacklist[][] = { "recharge", "recast", "cooldown", "cool" };
+static const char g_sBlacklist[][] = { "recharge", "recast", "cooldown", "cool", "cd" };
+static const char g_sColorSymbols[][] = { "\x01", "\x03", "\x04", "\x05", "\x06" }; // \x07 and \x08 is ommitted because it requires additional check
 StringMap g_hColorMap;
 StringMap g_hHexMap;
-char g_sColorSymbols[][] = { "\x01", "\x03", "\x04", "\x05", "\x06" }; // \x07 and \x08 is ommitted because it requires additional check
 char g_sPath[PLATFORM_MAX_PATH];
 char g_sLastMessage[MAXLENGTH_INPUT] = "";
 char g_sConsoleTag[255];
@@ -199,7 +199,7 @@ public void OnMapStart()
 	if (g_bTranslation)
 		ReadT();
 
-	InitColorMap();
+	InitStringMap();
 }
 
 public void OnMapEnd()
@@ -966,12 +966,16 @@ stock void SendServerMessage(const char[] sMessage, bool bScript = false)
 	}
 }
 
-void InitColorMap()
+/**
+ * Initializes all stringmaps used in the plugin
+ */
+void InitStringMap()
 {
+	// Create valid multicolors stringmap
 	delete g_hColorMap;
 	g_hColorMap = new StringMap();
 
-	char colors[][] = {
+	static const char colors[][] = {
 		"aliceblue", "allies", "ancient", "antiquewhite", "aqua", "aquamarine", "arcana", "axis", "azure",
 		"beige", "bisque", "black", "blanchedalmond", "blue", "blueviolet", "brown", "burlywood",
 		"cadetblue", "chartreuse", "chocolate", "coral", "cornflowerblue", "cornsilk", "crimson", "cyan",
@@ -996,10 +1000,11 @@ void InitColorMap()
 	for (int i = 0; i < sizeof(colors); i++)
 		g_hColorMap.SetValue(colors[i], 1);
 
+	// Create valid hex character stringmap
 	delete g_hHexMap;
 	g_hHexMap = new StringMap();
 
-	static const char HexChar[][] = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F", "a", "b", "c", "d", "e", "f"};
+	static const char HexChar[][] = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F", "a", "b", "c", "d", "e", "f" };
 	for (int i = 0; i < sizeof(HexChar); i++)
 		g_hHexMap.SetValue(HexChar[i], true);
 }
