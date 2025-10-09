@@ -673,26 +673,50 @@ stock bool ItContainSquarebracket(char[] szMessage)
 	return false;
 }
 
-stock bool ItContainColorcode(char[] szMessage)
+/**
+ * Checks if a sequence of characters contain color codes
+ *
+ * @param sMessage      The string to check
+ * @return             	True if a color code is found, false if not
+ */
+stock bool ItContainColorcode(const char[] szMessage)
 {
-	char szColor[64];
-	int dummy;
+	int len = strlen(szMessage), colorPos = 0;
+	bool inBrace = false;
+	char colorName[64];
 
-	// Search through the message for braces
-	int start = 0;
-	while ((start = StrContains(szMessage[start], "{", false)) != -1)
+	for (int i = 0; i < len; i++)
 	{
-		start++; // Skip opening brace
-		int end = StrContains(szMessage[start], "}", false);
-		if (end != -1)
+		if (szMessage[i] == '{')
 		{
-			// Extract color name
-			strcopy(szColor, end + 1, szMessage[start]);
-			// Check if it's a valid color in the StringMap
-			if (g_hColorMap.GetValue(szColor, dummy))
-				return true;
+			inBrace = true;
+			colorPos = 0;
+			continue;
 		}
-		start++; // Skip current position
+
+		if (inBrace)
+		{
+			if (szMessage[i] == '}')
+			{
+				// End of color name, check if valid
+				colorName[colorPos] = '\0';
+				int dummy;
+				if (g_hColorMap.GetValue(colorName, dummy))
+					return true;
+
+				inBrace = false;
+			}
+			else if (colorPos < sizeof(colorName) - 1)
+			{
+				// Build color name
+				colorName[colorPos++] = szMessage[i];
+			}
+			else
+			{
+				// Color name too long, reset
+				inBrace = false;
+			}
+		}
 	}
 
 	return false;
