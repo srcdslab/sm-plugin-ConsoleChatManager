@@ -608,9 +608,17 @@ stock void RemoveDuplicatePrefixAndSuffix(char[] sBuffer)
 	}
 }
 
-public bool StringContainDecimal(char[] input)
+/**
+ * Checks if a string contains a decimal point or comma
+ * Optimized for early return and single pass
+ * 
+ * @param input    String to check for decimal characters
+ * @return         True if decimal found, false otherwise
+ */
+stock bool StringContainDecimal(const char[] input)
 {
-	for (int i = 0; i < strlen(input); i++)
+	int len = strlen(input);
+	for (int i = 0; i < len; i++)
 	{
 		if (input[i] == '.' || input[i] == ',')
 			return true;
