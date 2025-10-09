@@ -521,22 +521,36 @@ public Action RepeatMsg(Handle timer, Handle pack)
 	return Plugin_Handled;
 }
 
+/**
+ * Removes text within braces from a string
+ * Optimized version using single pass and in-place modification
+ *
+ * @param szMessage           String to process
+ * @param bRemoveInt          Whether to remove integer values in braces
+ * @param bRemoveBracesForInt Whether to remove only braces around integers
+ */
 stock void RemoveTextInBraces(char[] szMessage, bool bRemoveInt = false, bool bRemoveBracesForInt = false)
 {
-	bool bracesFound = true;
-	while (bracesFound)
-	{
-		int start = StrContains(szMessage, "{", false);
-		int end = StrContains(szMessage, "}", false);
+	int len = strlen(szMessage);
+	int writePos = 0, start = -1;
 
-		if (start != -1 && end != -1)
+	for (int i = 0; i < len; i++)
+	{
+		if (szMessage[i] == '{')
 		{
+			start = i;
+			continue;
+		}
+
+		if (start != -1 && szMessage[i] == '}')
+		{
+			// Found closing brace, check content
 			bool isInteger = false;
 			if (bRemoveInt)
 			{
 				isInteger = true;
-				// Check if content between braces is not an integer value
-				for (int i = start + 1; i < end; i++)
+				// Quick check for integer content
+				for (int j = start + 1; j < i; j++)
 				{
 					if (!(szMessage[i] >= '0' && szMessage[i] <= '9') && szMessage[i] != '.')
 					{
@@ -546,37 +560,33 @@ stock void RemoveTextInBraces(char[] szMessage, bool bRemoveInt = false, bool bR
 				}
 			}
 
-			if (!isInteger)
+			if (isInteger && bRemoveBracesForInt)
 			{
-				// Content between braces is not an integer, remove it along with braces
-				int len = strlen(szMessage), i = 0, j = 0;
-				while (i < len)
-				{
-					if ((i < start) || (i > end))
-					{
-						szMessage[j] = szMessage[i];
-						j++;
-					}
-					i++;
-				}
-				szMessage[j] = '\0';
+				// Copy the number but remove braces
+				for (int j = start + 1; j < i; j++)
+					szMessage[writePos++] = szMessage[j];
 			}
-			else if (bRemoveBracesForInt)
+			else if (!isInteger)
 			{
-				// Content between braces is an integer, remove the braces only
-				for (int i = start; i <= end; i++)
-				{
-					if (szMessage[i] == '{' || szMessage[i] == '}')
-						szMessage[i] = ' ';
-				}
+				// Remove entire bracketed section
+				writePos = start;
 			}
+			else
+			{
+				// Keep everything including braces
+				for (int j = start; j <= i; j++)
+					szMessage[writePos++] = szMessage[j];
+			}
+
+			start = -1;
+			continue;
 		}
-		else
-		{
-			// No (more) braces found, we can exit the loop
-			bracesFound = false;
-		}
+
+		if (start == -1)
+			szMessage[writePos++] = szMessage[i];
 	}
+
+	szMessage[writePos] = '\0';
 }
 
 stock void RemoveDuplicatePrefixAndSuffix(char[] sBuffer)
@@ -611,7 +621,7 @@ stock void RemoveDuplicatePrefixAndSuffix(char[] sBuffer)
 /**
  * Checks if a string contains a decimal point or comma
  * Optimized for early return and single pass
- * 
+ *
  * @param input    String to check for decimal characters
  * @return         True if decimal found, false otherwise
  */
