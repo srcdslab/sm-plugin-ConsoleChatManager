@@ -17,8 +17,6 @@
 
 #pragma semicolon 1
 
-#include <sourcemod>
-#include <sdktools>
 #include <multicolors>
 #include <geoip>
 #include <utilshelper>
