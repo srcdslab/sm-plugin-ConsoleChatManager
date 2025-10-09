@@ -152,23 +152,24 @@ public void OnPluginStart()
 		return;
 
 	// ClientPrint detour
-	GameData gd;
-	if ((gd = new GameData("ConsoleChatManager.games")) == null)
+	GameData hGameConf;
+	if ((hGameConf = new GameData("ConsoleChatManager.games")) == null)
 	{
-		LogError("[ConsoleChatManager] gamedata file not found or failed to load");
+		delete hGameConf;
+		SetFailState("[ConsoleChatManager] gamedata file not found or failed to load");
 		return;
 	}
 
-	if ((g_hClientPrintDtr = DynamicDetour.FromConf(gd, "ClientPrint")) == null)
+	if ((g_hClientPrintDtr = DynamicDetour.FromConf(hGameConf, "ClientPrint")) == null)
 	{
-		LogError("[ConsoleChatManager] Failed to setup ClientPrint detour!");
-		delete gd;
+		delete hGameConf;
+		SetFailState("[ConsoleChatManager] Failed to setup ClientPrint detour!");
 		return;
 	}
 	else
 	{
 		if (!DHookEnableDetour(g_hClientPrintDtr, false, Detour_ClientPrint))
-			LogError("[ConsoleChatManager] Failed to detour ClientPrint()");
+			SetFailState("[ConsoleChatManager] Failed to detour ClientPrint()");
 		else
 			LogMessage("[ConsoleChatManager] Successfully detoured ClientPrint()");
 	}
