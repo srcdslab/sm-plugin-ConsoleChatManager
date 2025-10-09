@@ -176,8 +176,7 @@ public void OnPluginStart()
 
 public void OnPluginEnd()
 {
-	if (g_hColorMap != null)
-		delete g_hColorMap;
+	delete g_hColorMap;
 	delete g_hHexMap;
 }
 
@@ -208,9 +207,7 @@ public void OnMapStart()
 
 public void OnMapEnd()
 {
-	if (g_hColorMap != null)
-		delete g_hColorMap;
-
+	delete g_hColorMap;
 	g_hColorMap = new StringMap();
 
 	delete g_hHexMap;
@@ -976,9 +973,7 @@ stock void SendServerMessage(const char[] sMessage, bool bScript = false)
 
 void InitColorMap()
 {
-	if (g_hColorMap != null)
-		delete g_hColorMap;
-
+	delete g_hColorMap;
 	g_hColorMap = new StringMap();
 
 	char colors[][] = {
