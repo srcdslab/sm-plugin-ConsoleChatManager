@@ -43,7 +43,7 @@ enum EHudNotify
 
 ConVar g_ConsoleMessage, g_EnableTranslation, g_cRemoveConsoleTag;
 ConVar g_cBlockSpam, g_cBlockSpamDelay;
-ConVar g_EnableHud, g_cHudPosition, g_cHudColor, g_cHudHtmlColor;
+ConVar g_EnableHud, g_cHudPosition, g_cHudColor;
 ConVar g_cHudMapSymbols, g_cHudSymbols;
 ConVar g_cHudDuration, g_cHudDurationFadeOut;
 ConVar g_cvHUDChannel;
@@ -55,7 +55,7 @@ char g_sColorSymbols[][] = { "\x01", "\x03", "\x04", "\x05", "\x06" }; // \x07 a
 char g_sPath[PLATFORM_MAX_PATH];
 char g_sLastMessage[MAXLENGTH_INPUT] = "";
 char g_sConsoleTag[255];
-char g_sHudPosition[16], g_sHudColor[64], g_sHtmlColor[64];
+char g_sHudPosition[16], g_sHudColor[64];
 
 float g_fHudPos[2];
 float g_fHudDuration, g_fHudFadeOutDuration;
@@ -79,7 +79,7 @@ public Plugin myinfo =
 	name = "ConsoleChatManager",
 	author = "Franc1sco Steam: franug, maxime1907, inGame, AntiTeal, Oylsister, .Rushaway, tilgep, koen",
 	description = "Interact with console messages",
-	version = "2.4.2",
+	version = "2.4.3",
 	url = ""
 };
 
@@ -104,9 +104,7 @@ public void OnPluginStart()
 	g_cHudColor = CreateConVar("sm_consolechatmanager_hud_color", "0 255 0", "RGB color value for the hud.");
 	g_cHudMapSymbols = CreateConVar("sm_consolechatmanager_hud_mapsymbols", "1", "Eliminate the original prefix and suffix from the map text when displayed in the Hud.", _, true, 0.0, true, 1.0);
 	g_cHudSymbols = CreateConVar("sm_consolechatmanager_hud_symbols", "1", "Determines whether >> and << are wrapped around the text.");
-	g_cHudHtmlColor = CreateConVar("sm_consolechatmanager_hud_htmlcolor", "#6CFF00", "Html color for second type of Hud Message");
 	g_cvHUDChannel = CreateConVar("sm_consolechatmanager_hud_channel", "0", "The channel for the hud if using DynamicChannels", _, true, 0.0, true, 5.0);
-
 	g_cBlockSpam = CreateConVar("sm_consolechatmanager_block_spam", "1", "Blocks console messages that repeat the same message.", FCVAR_NONE, true, 0.0, true, 1.0);
 	g_cBlockSpamDelay = CreateConVar("sm_consolechatmanager_block_spam_delay", "1", "Time to wait before printing the same message", FCVAR_NONE, true, 1.0, true, 60.0);
 
@@ -121,7 +119,6 @@ public void OnPluginStart()
 	g_cHudColor.AddChangeHook(OnConVarChanged);
 	g_cHudMapSymbols.AddChangeHook(OnConVarChanged);
 	g_cHudSymbols.AddChangeHook(OnConVarChanged);
-	g_cHudHtmlColor.AddChangeHook(OnConVarChanged);
 	g_cvHUDChannel.AddChangeHook(OnConVarChanged);
 	g_cBlockSpam.AddChangeHook(OnConVarChanged);
 	g_cBlockSpamDelay.AddChangeHook(OnConVarChanged);
@@ -137,7 +134,6 @@ public void OnPluginStart()
 	UpdateHudColor();
 	g_bHudMapSymbols = g_cHudMapSymbols.BoolValue;
 	g_bHudSymbols = g_cHudSymbols.BoolValue;
-	g_cHudHtmlColor.GetString(g_sHtmlColor, sizeof(g_sHtmlColor));
 	g_iHUDChannel = g_cvHUDChannel.IntValue;
 	g_bBlockSpam = g_cBlockSpam.BoolValue;
 	g_iBlockSpamDelay = g_cBlockSpamDelay.IntValue;
@@ -237,8 +233,6 @@ public void OnConVarChanged(ConVar convar, char[] oldValue, char[] newValue)
 		g_bHudMapSymbols = g_cHudMapSymbols.BoolValue;
 	else if (convar == g_cHudSymbols)
 		g_bHudSymbols = g_cHudSymbols.BoolValue;
-	else if (convar == g_cHudHtmlColor)
-		g_cHudHtmlColor.GetString(g_sHtmlColor, sizeof(g_sHtmlColor));
 	else if (convar == g_cvHUDChannel)
 		g_iHUDChannel = g_cvHUDChannel.IntValue;
 	else if (convar == g_cBlockSpam)
