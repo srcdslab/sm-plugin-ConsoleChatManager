@@ -49,7 +49,6 @@ ConVar g_cvHUDChannel;
 static const char g_sBlacklist[][] = { "recharge", "recast", "cooldown", "cool", "cd" };
 static const char g_sColorSymbols[][] = { "\x01", "\x03", "\x04", "\x05", "\x06" }; // \x07 and \x08 is ommitted because it requires additional check
 StringMap g_hColorMap;
-StringMap g_hHexMap;
 char g_sPath[PLATFORM_MAX_PATH];
 char g_sLastMessage[MAXLENGTH_INPUT] = "";
 char g_sConsoleTag[255];
@@ -172,7 +171,6 @@ public void OnPluginStart()
 public void OnPluginEnd()
 {
 	delete g_hColorMap;
-	delete g_hHexMap;
 }
 
 public void OnAllPluginsLoaded()
@@ -204,9 +202,6 @@ public void OnMapEnd()
 {
 	delete g_hColorMap;
 	g_hColorMap = new StringMap();
-
-	delete g_hHexMap;
-	g_hHexMap = new StringMap();
 }
 
 public void OnConVarChanged(ConVar convar, char[] oldValue, char[] newValue)
@@ -347,88 +342,89 @@ public bool CheckStringBlacklist(const char[] string)
 	return false;
 }
 
-public bool IsCountable(const char sMessage[MAXLENGTH_INPUT])
+/**
+ * Checks if a message contains countable numbers with time units
+ *
+ * @param sMessage    Message to check
+ * @return            True if countable number found, false otherwise
+ */
+stock bool IsCountable(const char[] sMessage)
 {
-	char FilterText[sizeof(sMessage)+1], ChatArray[32][MAXLENGTH_INPUT];
-	int consoleNumber, filterPos;
-	bool isCountable = false;
+	// Quick exit if message contains blacklisted words
+	if (CheckStringBlacklist(sMessage))
+		return false;
 
-	for (int i = 0; i < sizeof(sMessage); i++)
+	// Pre-filter non-alphanumeric characters
+	char sFiltered[MAXLENGTH_INPUT];
+	int writePos = 0;
+
+	for (int i = 0; sMessage[i] != '\0'; i++)
 	{
 		if (IsCharAlpha(sMessage[i]) || IsCharNumeric(sMessage[i]) || IsCharSpace(sMessage[i]))
-			FilterText[filterPos++] = sMessage[i];
-	}
-	FilterText[filterPos] = '\0';
-	TrimString(FilterText);
-
-	if (CheckStringBlacklist(sMessage))
-		return isCountable;
-
-	int words = ExplodeString(FilterText, " ", ChatArray, sizeof(ChatArray), sizeof(ChatArray[]));
-
-	if (words == 1)
-	{
-		if (StringToInt(ChatArray[0]) != 0)
-		{
-			isCountable = true;
-			consoleNumber = StringToInt(ChatArray[0]);
-		}
+			sFiltered[writePos++] = sMessage[i];
 	}
 
-	for (int i = 0; i <= words; i++)
+	sFiltered[writePos] = '\0';
+	TrimString(sFiltered);
+
+	// Quick check for single number
+	if (!containsSpace(sFiltered))
 	{
-		if (StringToInt(ChatArray[i]) != 0)
+		int number = StringToInt(sFiltered);
+		if (number > 0)
 		{
-			if (i + 1 <= words && (strcmp(ChatArray[i + 1], "s", false) == 0 || (IsCharEqualIgnoreCase(ChatArray[i + 1][0], 's') && IsCharEqualIgnoreCase(ChatArray[i + 1][1], 'e'))))
+			g_iNumber = number;
+			g_iOnumber = number;
+			return true;
+		}
+
+		return false;
+	}
+
+	// Split into words and analyze
+	char words[16][64];
+	int wordCount = ExplodeString(sFiltered, " ", words, sizeof(words), sizeof(words[]));
+
+	for (int i = 0; i < wordCount - 1; i++)
+	{
+		int number = StringToInt(words[i]);
+		if (number <= 0)
+			continue;
+
+		// Check for time units after number
+		if (i + 1 < wordCount)
+		{
+			// Check for 's' or 'sec' suffix
+			if (strcmp(words[i + 1], "s", false) == 0 || strcmp(words[i + 1], "sec", false) == 0)
 			{
-				consoleNumber = StringToInt(ChatArray[i]);
-				isCountable = true;
-			}
-			if (!isCountable && i + 2 <= words && (strcmp(ChatArray[i + 2], "s", false) == 0 || (IsCharEqualIgnoreCase(ChatArray[i + 2][0], 's') && IsCharEqualIgnoreCase(ChatArray[i + 2][1], 'e'))))
-			{
-				consoleNumber = StringToInt(ChatArray[i]);
-				isCountable = true;
+				g_iNumber = number;
+				g_iOnumber = number;
+				return true;
 			}
 		}
-		if (!isCountable)
-		{
-			char word[MAXLENGTH_INPUT];
-			strcopy(word, sizeof(word), ChatArray[i]);
-			int len = strlen(word);
 
-			if (IsCharNumeric(word[0]))
+		// Check for combined number+unit (e.g. "10s", "5sec")
+		int len = strlen(words[i]);
+		if (len > 1)
+		{
+			if (words[i][len-1] == 's' || (len > 3 && strcmp(words[i][len-3], "sec", false) == 0))
 			{
-				if (IsCharNumeric(word[1]))
+				char numStr[16];
+				strcopy(numStr, len, words[i]);
+				numStr[len-1] = '\0'; // Remove suffix
+
+				number = StringToInt(numStr);
+				if (number > 0)
 				{
-					if (IsCharNumeric(word[2]))
-					{
-						if (IsCharEqualIgnoreCase(word[3], 's'))
-						{
-							consoleNumber = StringEnder(word, 5, len);
-							isCountable = true;
-						}
-					}
-					else if (IsCharEqualIgnoreCase(word[2], 's'))
-					{
-						consoleNumber = StringEnder(word, 4, len);
-						isCountable = true;
-					}
-				}
-				else if (IsCharEqualIgnoreCase(word[1], 's'))
-				{
-					consoleNumber = StringEnder(word, 3, len);
-					isCountable = true;
+					g_iNumber = number;
+					g_iOnumber = number;
+					return true;
 				}
 			}
 		}
-		if (isCountable)
-		{
-			g_iNumber = consoleNumber;
-			g_iOnumber = consoleNumber;
-			break;
-		}
 	}
-	return isCountable;
+
+	return false;
 }
 
 public Action SayConsole(int client, const char[] command, int args)
@@ -734,15 +730,9 @@ stock bool ItContainColorcode(const char[] szMessage)
 				inBrace = false;
 			}
 			else if (colorPos < sizeof(colorName) - 1)
-			{
-				// Build color name
-				colorName[colorPos++] = szMessage[i];
-			}
+				colorName[colorPos++] = szMessage[i]; // Build color name
 			else
-			{
-				// Color name too long, reset
-				inBrace = false;
-			}
+				inBrace = false; // Color name too long, reset
 		}
 	}
 
@@ -750,19 +740,47 @@ stock bool ItContainColorcode(const char[] szMessage)
 }
 
 /**
- * Checks if a sequence of characters are valid hex characters
+ * Checks if a sequence of characters are valid hex characters (0-9, A-F, a-f)
  *
- * @param sMessage      The string to check
- * @param startPos      Starting position in the string
- * @param length        Number of characters to check
- * @return             	True if all characters are valid hex, false otherwise
+ * @param sMessage    The string to check
+ * @param startPos    Starting position in the string
+ * @param length      Number of characters to check
+ * @return            True if all characters are valid hex, false otherwise
  */
 stock bool IsValidHexSequence(const char[] sMessage, int startPos, int length)
 {
-	bool dummy;
+	// Static lookup table for hex validation (0-9, A-F, a-f)
+	static bool hexArray[256] = { false, ... };
+
+	// Initialize lookup table on first use
+	static bool initialized = false;
+	if (!initialized)
+	{
+		// Numbers 0-9
+		for (int i = '0'; i <= '9'; i++)
+			hexArray[i] = true;
+
+		// Uppercase A-F
+		for (int i = 'A'; i <= 'F'; i++)
+			hexArray[i] = true;
+
+		// Lowercase a-f
+		for (int i = 'a'; i <= 'f'; i++)
+			hexArray[i] = true;
+
+		initialized = true;
+	}
+
+	// Bounds check
+	int strLen = strlen(sMessage);
+	if (startPos < 0 || startPos + length > strLen)
+		return false;
+
+	// Check each character against lookup table
 	for (int i = 0; i < length; i++)
 	{
-		if (!g_hHexMap.GetValue(sMessage[startPos + i], dummy))
+		int c = sMessage[startPos + i];
+		if (!hexArray[c])
 			return false;
 	}
 
@@ -997,12 +1015,17 @@ void InitStringMap()
 
 	for (int i = 0; i < sizeof(colors); i++)
 		g_hColorMap.SetValue(colors[i], 1);
+}
 
-	// Create valid hex character stringmap
-	delete g_hHexMap;
-	g_hHexMap = new StringMap();
-
-	static const char HexChar[][] = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F", "a", "b", "c", "d", "e", "f" };
-	for (int i = 0; i < sizeof(HexChar); i++)
-		g_hHexMap.SetValue(HexChar[i], true);
+/**
+ * Helper function to check if string contains spaces
+ */
+static bool containsSpace(const char[] str)
+{
+	for (int i = 0; str[i] != '\0'; i++)
+	{
+		if (IsCharSpace(str[i]))
+			return true;
+	}
+	return false;
 }
