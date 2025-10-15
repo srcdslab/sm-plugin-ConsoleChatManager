@@ -148,8 +148,7 @@ public void OnPluginStart()
 	GameData hGameConf;
 	if ((hGameConf = new GameData("ConsoleChatManager.games")) == null)
 	{
-		delete hGameConf;
-		SetFailState("[ConsoleChatManager] gamedata file not found or failed to load");
+		SetFailState("[ConsoleChatManager] Failed to load or find gamedata file!");
 		return;
 	}
 
@@ -162,9 +161,9 @@ public void OnPluginStart()
 	else
 	{
 		if (!DHookEnableDetour(g_hClientPrintDtr, false, Detour_ClientPrint))
-			SetFailState("[ConsoleChatManager] Failed to detour ClientPrint()");
+			SetFailState("[ConsoleChatManager] Failed to detour ClientPrint()!");
 		else
-			LogMessage("[ConsoleChatManager] Successfully detoured ClientPrint()");
+			LogMessage("[ConsoleChatManager] Successfully detoured ClientPrint()!");
 	}
 }
 
@@ -538,7 +537,7 @@ stock void RemoveTextInBraces(char[] szMessage, bool bRemoveInt = false, bool bR
 				// Quick check for integer content
 				for (int j = start + 1; j < i; j++)
 				{
-					if (!(szMessage[i] >= '0' && szMessage[i] <= '9') && szMessage[i] != '.')
+					if (!(szMessage[j] >= '0' && szMessage[j] <= '9') && szMessage[j] != '.')
 					{
 						isInteger = false;
 						break;
@@ -824,6 +823,9 @@ stock void RemoveColorCodes(char[] sMessage)
 	// Check if string has other color codes
 	for (int j = 0; j < sizeof(g_sColorSymbols); j++)
 		ReplaceString(sMessage, strlen(sMessage), g_sColorSymbols[j], "", false);
+
+	
+	CRemoveTags(sMessage, strlen(sMessage));
 }
 
 /**
