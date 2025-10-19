@@ -78,7 +78,7 @@ public Plugin myinfo =
 	name = "ConsoleChatManager",
 	author = "Franc1sco Steam: franug, maxime1907, inGame, AntiTeal, Oylsister, .Rushaway, tilgep, koen",
 	description = "Interact with console messages",
-	version = "2.4.2",
+	version = "2.4.3",
 	url = ""
 };
 
@@ -673,26 +673,43 @@ stock bool ItContainSquarebracket(char[] szMessage)
 	return false;
 }
 
-stock bool ItContainColorcode(char[] szMessage)
+/**
+ * Checks if the given string contains a valid color code.
+ * 
+ * @param szMessage    The string to check for color codes.
+ * @return             True if a valid color code is found, false otherwise.
+ */
+stock bool ItContainColorcode(const char[] szMessage)
 {
-	char szColor[64];
-	int dummy;
+	int len = strlen(szMessage), colorPos = 0, dummy;
+	char colorName[64];
+	bool inBrace = false;
 
-	// Search through the message for braces
-	int start = 0;
-	while ((start = StrContains(szMessage[start], "{", false)) != -1)
+	for (int i = 0; i < len; i++)
 	{
-		start++; // Skip opening brace
-		int end = StrContains(szMessage[start], "}", false);
-		if (end != -1)
+		if (szMessage[i] == '{')
 		{
-			// Extract color name
-			strcopy(szColor, end + 1, szMessage[start]);
-			// Check if it's a valid color in the StringMap
-			if (g_hColorMap.GetValue(szColor, dummy))
-				return true;
+			inBrace = true;
+			colorPos = 0;
+			colorName[0] = '\0';
+			continue;
 		}
-		start++; // Skip current position
+
+		if (inBrace)
+		{
+			if (szMessage[i] == '}')
+			{
+				colorName[colorPos] = '\0';
+				if (colorPos > 0 && g_hColorMap.GetValue(colorName, dummy))
+					return true;
+
+				inBrace = false;
+			}
+			else if (colorPos < sizeof(colorName) - 1)
+				colorName[colorPos++] = szMessage[i];
+			else
+				inBrace = false; // Too long, reset
+		}
 	}
 
 	return false;
