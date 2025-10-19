@@ -679,7 +679,7 @@ stock bool ItContainSquarebracket(char[] szMessage)
  * @param szMessage    The string to check for color codes.
  * @return             True if a valid color code is found, false otherwise.
  */
-stock bool ItContainColorcode(char[] szMessage)
+stock bool ItContainColorcode(const char[] szMessage)
 {
 	int len = strlen(szMessage), colorPos = 0, dummy;
 	char colorName[64];
@@ -691,6 +691,7 @@ stock bool ItContainColorcode(char[] szMessage)
 		{
 			inBrace = true;
 			colorPos = 0;
+			colorName[0] = '\0';
 			continue;
 		}
 
@@ -699,7 +700,7 @@ stock bool ItContainColorcode(char[] szMessage)
 			if (szMessage[i] == '}')
 			{
 				colorName[colorPos] = '\0';
-				if (g_hColorMap.GetValue(colorName, dummy))
+				if (colorPos > 0 && g_hColorMap.GetValue(colorName, dummy))
 					return true;
 
 				inBrace = false;
