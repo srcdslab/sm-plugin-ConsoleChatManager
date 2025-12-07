@@ -78,7 +78,7 @@ public Plugin myinfo =
 	name = "ConsoleChatManager",
 	author = "Franc1sco Steam: franug, maxime1907, inGame, AntiTeal, Oylsister, .Rushaway, tilgep, koen",
 	description = "Interact with console messages",
-	version = "2.4.3",
+	version = "2.4.4",
 	url = ""
 };
 
@@ -380,16 +380,16 @@ public bool IsCountable(const char sMessage[MAXLENGTH_INPUT])
 		}
 	}
 
-	for (int i = 0; i <= words; i++)
+	for (int i = 0; i < words; i++)
 	{
 		if (StringToInt(ChatArray[i]) != 0)
 		{
-			if (i + 1 <= words && (strcmp(ChatArray[i + 1], "s", false) == 0 || (IsCharEqualIgnoreCase(ChatArray[i + 1][0], 's') && IsCharEqualIgnoreCase(ChatArray[i + 1][1], 'e'))))
+			if (i + 1 < words && (strcmp(ChatArray[i + 1], "s", false) == 0 || (IsCharEqualIgnoreCase(ChatArray[i + 1][0], 's') && IsCharEqualIgnoreCase(ChatArray[i + 1][1], 'e'))))
 			{
 				consoleNumber = StringToInt(ChatArray[i]);
 				isCountable = true;
 			}
-			if (!isCountable && i + 2 <= words && (strcmp(ChatArray[i + 2], "s", false) == 0 || (IsCharEqualIgnoreCase(ChatArray[i + 2][0], 's') && IsCharEqualIgnoreCase(ChatArray[i + 2][1], 'e'))))
+			if (!isCountable && i + 2 < words && (strcmp(ChatArray[i + 2], "s", false) == 0 || (IsCharEqualIgnoreCase(ChatArray[i + 2][0], 's') && IsCharEqualIgnoreCase(ChatArray[i + 2][1], 'e'))))
 			{
 				consoleNumber = StringToInt(ChatArray[i]);
 				isCountable = true;
