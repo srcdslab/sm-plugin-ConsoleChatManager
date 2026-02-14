@@ -17,10 +17,8 @@
 
 #pragma semicolon 1
 
-#include <sourcemod>
 #include <sdktools>
 #include <multicolors>
-#include <geoip>
 #include <utilshelper>
 #include <dhooks>
 
@@ -41,44 +39,48 @@ enum EHudNotify
 #define MAXLENGTH_INPUT 512
 #define NORMALHUD 1
 
-ConVar g_ConsoleMessage, g_EnableTranslation, g_cRemoveConsoleTag;
-ConVar g_cBlockSpam, g_cBlockSpamDelay;
-ConVar g_EnableHud, g_cHudPosition, g_cHudColor, g_cHudHtmlColor;
-ConVar g_cHudMapSymbols, g_cHudSymbols;
-ConVar g_cHudDuration, g_cHudDurationFadeOut;
-ConVar g_cvHUDChannel;
+ConVar g_hCVar_ConsoleMessage;
+ConVar g_hCVar_BlockSpam;
+ConVar g_hCVar_BlockSpamDelay;
+ConVar g_hCVar_EnableHud;
+ConVar g_hCVar_HudPosition;
+ConVar g_hCVar_HudColor;
+ConVar g_hCVar_HudDuration;
+ConVar g_hCVar_HudDurationFadeOut;
+ConVar g_hCVar_HudChannel;
 
-char g_sBlacklist[][] = { "recharge", "recast", "cooldown", "cool" };
-StringMap g_hColorMap;
+char g_sBlacklist[][] = { "recharge", "recast", "cooldown", "cool", "cd" };
 char g_sColorSymbols[][] = { "\x01", "\x03", "\x04", "\x05", "\x06" }; // \x07 and \x08 is ommitted because it requires additional check
-char g_sPath[PLATFORM_MAX_PATH];
 char g_sLastMessage[MAXLENGTH_INPUT] = "";
 char g_sConsoleTag[255];
-char g_sHudPosition[16], g_sHudColor[64], g_sHtmlColor[64];
+char g_sHudPosition[16], g_sHudColor[64];
 
 float g_fHudPos[2];
-float g_fHudDuration, g_fHudFadeOutDuration;
+float g_fHudDuration;
+float g_fHudFadeOutDuration;
 
 bool g_bPlugin_DynamicChannels = false;
-bool g_bTranslation, g_bEnableHud, g_bHudMapSymbols, g_bHudSymbols, g_bBlockSpam, g_bRemoveConsoleTag;
+bool g_bEnableHud;
+bool g_bBlockSpam;
 
 int g_iHudColor[3];
 int g_iNumber, g_iOnumber;
 int g_iLastMessageTime = -1;
 int g_iRoundStartedTime = -1;
-int g_iHUDChannel, g_iBlockSpamDelay;
+int g_iHUDChannel;
+int g_iBlockSpamDelay;
 
-Handle kv;
-Handle g_hTimerHandle, g_hHudSync;
+Handle g_hTimerHandle;
+Handle g_hHudSync;
 
 DHookSetup g_hClientPrintDtr;
 
 public Plugin myinfo =
 {
-	name = "ConsoleChatManager",
-	author = "Franc1sco Steam: franug, maxime1907, inGame, AntiTeal, Oylsister, .Rushaway, tilgep, koen",
+	name = "ConsoleChatManager-Lite",
+	author = "Franc1sco Franug, maxime1907, inGame, AntiTeal, Oylsister, .Rushaway, tilgep, koen",
 	description = "Interact with console messages",
-	version = "2.4.5",
+	version = "2.4.4",
 	url = ""
 };
 
@@ -89,57 +91,39 @@ public void OnPluginStart()
 	DeleteTimer();
 	g_hHudSync = CreateHudSynchronizer();
 
-	RegAdminCmd("sm_ccm_reloadcfg", Command_ReloadConfig, ADMFLAG_CONFIG, "Reload translations file");
+	g_hCVar_ConsoleMessage = CreateConVar("sm_consolechatmanager_tag", "{green}[Console] {white}", "The tag that will be printed instead of the console default messages");
 
-	g_ConsoleMessage = CreateConVar("sm_consolechatmanager_tag", "{green}[NARRATOR] {white}", "The tag that will be printed instead of the console default messages");
-	g_cRemoveConsoleTag = CreateConVar("sm_consolechatmanager_remove_tag", "0", "Remove console tag if message contain square bracket and a color name", _, true, 0.0, true, 1.0);
+	g_hCVar_EnableHud = CreateConVar("sm_consolechatmanager_hud", "1", "Enables printing the console output in the middle of the screen");
+	g_hCVar_HudDuration = CreateConVar("sm_consolechatmanager_hud_duration", "2.5", "How long the message stays");
+	g_hCVar_HudDurationFadeOut = CreateConVar("sm_consolechatmanager_hud_duration_fadeout", "1.0", "How long the message takes to disapear");
+	g_hCVar_HudPosition = CreateConVar("sm_consolechatmanager_hud_position", "-1.0 0.125", "The X and Y position for the hud.");
+	g_hCVar_HudColor = CreateConVar("sm_consolechatmanager_hud_color", "0 255 0", "RGB color value for the hud.");
+	g_hCVar_HudChannel = CreateConVar("sm_consolechatmanager_hud_channel", "0", "The channel for the hud if using DynamicChannels", _, true, 0.0, true, 5.0);
 
-	g_EnableTranslation = CreateConVar("sm_consolechatmanager_translation", "0", "Enable translation of console chat messages. 1 = Enabled, 0 = Disabled");
-
-	g_EnableHud = CreateConVar("sm_consolechatmanager_hud", "1", "Enables printing the console output in the middle of the screen");
-	g_cHudDuration = CreateConVar("sm_consolechatmanager_hud_duration", "2.5", "How long the message stays");
-	g_cHudDurationFadeOut = CreateConVar("sm_consolechatmanager_hud_duration_fadeout", "1.0", "How long the message takes to disapear");
-	g_cHudPosition = CreateConVar("sm_consolechatmanager_hud_position", "-1.0 0.125", "The X and Y position for the hud.");
-	g_cHudColor = CreateConVar("sm_consolechatmanager_hud_color", "0 255 0", "RGB color value for the hud.");
-	g_cHudMapSymbols = CreateConVar("sm_consolechatmanager_hud_mapsymbols", "1", "Eliminate the original prefix and suffix from the map text when displayed in the Hud.", _, true, 0.0, true, 1.0);
-	g_cHudSymbols = CreateConVar("sm_consolechatmanager_hud_symbols", "1", "Determines whether >> and << are wrapped around the text.");
-	g_cHudHtmlColor = CreateConVar("sm_consolechatmanager_hud_htmlcolor", "#6CFF00", "Html color for second type of Hud Message");
-	g_cvHUDChannel = CreateConVar("sm_consolechatmanager_hud_channel", "0", "The channel for the hud if using DynamicChannels", _, true, 0.0, true, 5.0);
-
-	g_cBlockSpam = CreateConVar("sm_consolechatmanager_block_spam", "1", "Blocks console messages that repeat the same message.", FCVAR_NONE, true, 0.0, true, 1.0);
-	g_cBlockSpamDelay = CreateConVar("sm_consolechatmanager_block_spam_delay", "1", "Time to wait before printing the same message", FCVAR_NONE, true, 1.0, true, 60.0);
+	g_hCVar_BlockSpam = CreateConVar("sm_consolechatmanager_block_spam", "1", "Blocks console messages that repeat the same message.", FCVAR_NONE, true, 0.0, true, 1.0);
+	g_hCVar_BlockSpamDelay = CreateConVar("sm_consolechatmanager_block_spam_delay", "1", "Time to wait before printing the same message", FCVAR_NONE, true, 1.0, true, 60.0);
 
 	// Hook Convars
-	g_ConsoleMessage.AddChangeHook(OnConVarChanged);
-	g_cRemoveConsoleTag.AddChangeHook(OnConVarChanged);
-	g_EnableTranslation.AddChangeHook(OnConVarChanged);
-	g_EnableHud.AddChangeHook(OnConVarChanged);
-	g_cHudDuration.AddChangeHook(OnConVarChanged);
-	g_cHudDurationFadeOut.AddChangeHook(OnConVarChanged);
-	g_cHudPosition.AddChangeHook(OnConVarChanged);
-	g_cHudColor.AddChangeHook(OnConVarChanged);
-	g_cHudMapSymbols.AddChangeHook(OnConVarChanged);
-	g_cHudSymbols.AddChangeHook(OnConVarChanged);
-	g_cHudHtmlColor.AddChangeHook(OnConVarChanged);
-	g_cvHUDChannel.AddChangeHook(OnConVarChanged);
-	g_cBlockSpam.AddChangeHook(OnConVarChanged);
-	g_cBlockSpamDelay.AddChangeHook(OnConVarChanged);
+	g_hCVar_ConsoleMessage.AddChangeHook(OnConVarChanged);
+	g_hCVar_EnableHud.AddChangeHook(OnConVarChanged);
+	g_hCVar_HudDuration.AddChangeHook(OnConVarChanged);
+	g_hCVar_HudDurationFadeOut.AddChangeHook(OnConVarChanged);
+	g_hCVar_HudPosition.AddChangeHook(OnConVarChanged);
+	g_hCVar_HudColor.AddChangeHook(OnConVarChanged);
+	g_hCVar_HudChannel.AddChangeHook(OnConVarChanged);
+	g_hCVar_BlockSpam.AddChangeHook(OnConVarChanged);
+	g_hCVar_BlockSpamDelay.AddChangeHook(OnConVarChanged);
 
 	// Initilize convars values
-	g_ConsoleMessage.GetString(g_sConsoleTag, sizeof(g_sConsoleTag));
-	g_bRemoveConsoleTag = g_cRemoveConsoleTag.BoolValue;
-	g_bTranslation = g_EnableTranslation.BoolValue;
-	g_bEnableHud = g_EnableHud.BoolValue;
-	g_fHudDuration = g_cHudDuration.FloatValue;
-	g_fHudFadeOutDuration = g_cHudDurationFadeOut.FloatValue;
+	g_hCVar_ConsoleMessage.GetString(g_sConsoleTag, sizeof(g_sConsoleTag));
+	g_bEnableHud = g_hCVar_EnableHud.BoolValue;
+	g_fHudDuration = g_hCVar_HudDuration.FloatValue;
+	g_fHudFadeOutDuration = g_hCVar_HudDurationFadeOut.FloatValue;
 	UpdateHudPosition();
 	UpdateHudColor();
-	g_bHudMapSymbols = g_cHudMapSymbols.BoolValue;
-	g_bHudSymbols = g_cHudSymbols.BoolValue;
-	g_cHudHtmlColor.GetString(g_sHtmlColor, sizeof(g_sHtmlColor));
-	g_iHUDChannel = g_cvHUDChannel.IntValue;
-	g_bBlockSpam = g_cBlockSpam.BoolValue;
-	g_iBlockSpamDelay = g_cBlockSpamDelay.IntValue;
+	g_iHUDChannel = g_hCVar_HudChannel.IntValue;
+	g_bBlockSpam = g_hCVar_BlockSpam.BoolValue;
+	g_iBlockSpamDelay = g_hCVar_BlockSpamDelay.IntValue;
 
 	AddCommandListener(SayConsole, "say");
 
@@ -148,35 +132,35 @@ public void OnPluginStart()
 	// For now VScript detour is only supported for Counter-Strike: Source
 	EngineVersion iEngine = GetEngineVersion();
 	if (iEngine != Engine_CSS)
+	{
 		return;
+	}
 
 	// ClientPrint detour
 	GameData gd;
 	if ((gd = new GameData("ConsoleChatManager.games")) == null)
 	{
-		LogError("[ConsoleChatManager] gamedata file not found or failed to load");
+		LogError("Failed to find or load gamedata file!");
 		return;
 	}
 
 	if ((g_hClientPrintDtr = DynamicDetour.FromConf(gd, "ClientPrint")) == null)
 	{
-		LogError("[ConsoleChatManager] Failed to setup ClientPrint detour!");
+		LogError("Failed to setup ClientPrint() detour!");
 		delete gd;
 		return;
 	}
 	else
 	{
 		if (!DHookEnableDetour(g_hClientPrintDtr, false, Detour_ClientPrint))
-			LogError("[ConsoleChatManager] Failed to detour ClientPrint()");
+		{
+			LogError("Failed to detour ClientPrint()!");
+		}
 		else
-			LogMessage("[ConsoleChatManager] Successfully detoured ClientPrint()");
+		{
+			LogMessage("Failed Successfully detoured ClientPrint()!");
+		}
 	}
-}
-
-public void OnPluginEnd()
-{
-	if (g_hColorMap != null)
-		delete g_hColorMap;
 }
 
 public void OnAllPluginsLoaded()
@@ -187,61 +171,57 @@ public void OnAllPluginsLoaded()
 public void OnLibraryAdded(const char[] name)
 {
 	if (strcmp(name, "DynamicChannels", false) == 0)
+	{
 		g_bPlugin_DynamicChannels = true;
+	}
 }
 
 public void OnLibraryRemoved(const char[] name)
 {
 	if (strcmp(name, "DynamicChannels", false) == 0)
+	{
 		g_bPlugin_DynamicChannels = false;
-}
-
-public void OnMapStart()
-{
-	if (g_bTranslation)
-		ReadT();
-
-	InitColorMap();
-}
-
-public void OnMapEnd()
-{
-	if (g_hColorMap != null)
-		delete g_hColorMap;
-
-	g_hColorMap = new StringMap();
+	}
 }
 
 public void OnConVarChanged(ConVar convar, char[] oldValue, char[] newValue)
 {
-	if (convar == g_ConsoleMessage)
-		g_ConsoleMessage.GetString(g_sConsoleTag, sizeof(g_sConsoleTag));
-	else if (convar == g_cRemoveConsoleTag)
-		g_bRemoveConsoleTag = g_cRemoveConsoleTag.BoolValue;
-	else if (convar == g_EnableTranslation)
-		g_bTranslation = g_EnableTranslation.BoolValue;
-	else if (convar == g_EnableHud)
-		g_bEnableHud = g_EnableHud.BoolValue;
-	else if (convar == g_cHudDuration)
-		g_fHudDuration = g_cHudDuration.FloatValue;
-	else if (convar == g_cHudDurationFadeOut)
-		g_fHudFadeOutDuration = g_cHudDurationFadeOut.FloatValue;
-	else if (convar == g_cHudPosition)
+	if (convar == g_hCVar_ConsoleMessage)
+	{
+		g_hCVar_ConsoleMessage.GetString(g_sConsoleTag, sizeof(g_sConsoleTag));
+	}
+	else if (convar == g_hCVar_EnableHud)
+	{
+		g_bEnableHud = g_hCVar_EnableHud.BoolValue;
+	}
+	else if (convar == g_hCVar_HudDuration)
+	{
+		g_fHudDuration = g_hCVar_HudDuration.FloatValue;
+	}
+	else if (convar == g_hCVar_HudDurationFadeOut)
+	{
+		g_fHudFadeOutDuration = g_hCVar_HudDurationFadeOut.FloatValue;
+	}
+	else if (convar == g_hCVar_HudPosition)
+	{
 		UpdateHudPosition();
-	else if (convar == g_cHudColor)
+	}
+	else if (convar == g_hCVar_HudColor)
+	{
 		UpdateHudColor();
-	else if (convar == g_cHudMapSymbols)
-		g_bHudMapSymbols = g_cHudMapSymbols.BoolValue;
-	else if (convar == g_cHudSymbols)
-		g_bHudSymbols = g_cHudSymbols.BoolValue;
-	else if (convar == g_cHudHtmlColor)
-		g_cHudHtmlColor.GetString(g_sHtmlColor, sizeof(g_sHtmlColor));
-	else if (convar == g_cvHUDChannel)
-		g_iHUDChannel = g_cvHUDChannel.IntValue;
-	else if (convar == g_cBlockSpam)
-		g_bBlockSpam = g_cBlockSpam.BoolValue;
-	else if (convar == g_cBlockSpamDelay)
-		g_iBlockSpamDelay = g_cBlockSpamDelay.IntValue;
+	}
+	else if (convar == g_hCVar_HudChannel)
+	{
+		g_iHUDChannel = g_hCVar_HudChannel.IntValue;
+	}
+	else if (convar == g_hCVar_BlockSpam)
+	{
+		g_bBlockSpam = g_hCVar_BlockSpam.BoolValue;
+	}
+	else if (convar == g_hCVar_BlockSpamDelay)
+	{
+		g_iBlockSpamDelay = g_hCVar_BlockSpamDelay.IntValue;
+	}
 }
 
 public void Event_RoundStart(Handle event, const char[] name, bool dontBroadcast)
@@ -274,7 +254,7 @@ public void DeleteTimer()
 stock void UpdateHudPosition()
 {
 	char StringPos[2][8];
-	g_cHudPosition.GetString(g_sHudPosition, sizeof(g_sHudPosition));
+	g_hCVar_HudPosition.GetString(g_sHudPosition, sizeof(g_sHudPosition));
 	ExplodeString(g_sHudPosition, " ", StringPos, sizeof(StringPos), sizeof(StringPos[]));
 	g_fHudPos[0] = StringToFloat(StringPos[0]);
 	g_fHudPos[1] = StringToFloat(StringPos[1]);
@@ -282,64 +262,8 @@ stock void UpdateHudPosition()
 
 stock void UpdateHudColor()
 {
-	g_cHudColor.GetString(g_sHudColor, sizeof(g_sHudColor));
+	g_hCVar_HudColor.GetString(g_sHudColor, sizeof(g_sHudColor));
 	ColorStringToArray(g_sHudColor, g_iHudColor);
-}
-
-public Action Command_ReloadConfig(int client, int argc)
-{
-	ReadT();
-	CReplyToCommand(client, "{green}[CCM] {default}Translation file has been reloaded.");
-	LogAction(client, -1, "[CCM] %L Reloaded the translation file.", client);
-	return Plugin_Handled;
-}
-
-public void ReadT()
-{
-	delete kv;
-
-	char map[64];
-	GetCurrentMap(map, sizeof(map));
-	BuildPath(Path_SM, g_sPath, sizeof(g_sPath), "configs/consolechatmanager/%s.txt", map);
-
-	if (!FileExists(g_sPath))
-	{
-		StringToLowerCase(map);
-		BuildPath(Path_SM, g_sPath, sizeof(g_sPath), "configs/consolechatmanager/%s.txt", map);
-	}
-
-	kv = CreateKeyValues("Console_C");
-	// File not found, create the file
-	if (!FileExists(g_sPath))
-		KeyValuesToFile(kv, g_sPath);
-	else
-		FileToKeyValues(kv, g_sPath);
-
-	CheckSounds();
-}
-
-void CheckSounds()
-{
-	PrecacheSound("common/talk.wav", false);
-
-	char buffer[255];
-	if (KvGotoFirstSubKey(kv))
-	{
-		do
-		{
-			KvGetString(kv, "sound", buffer, 64, "default");
-			if (strcmp(buffer, "default", false) != 0)
-			{
-				PrecacheSound(buffer);
-
-				FormatEx(buffer, 255, "sound/%s", buffer);
-				AddFileToDownloadsTable(buffer);
-			}
-
-		} while (KvGotoNextKey(kv));
-	}
-
-	KvRewind(kv);
 }
 
 public bool CheckStringBlacklist(const char[] string)
@@ -347,7 +271,9 @@ public bool CheckStringBlacklist(const char[] string)
 	for (int i = 0; i < sizeof(g_sBlacklist); i++)
 	{
 		if (StrContains(string, g_sBlacklist[i], false) != -1)
+		{
 			return true;
+		}
 	}
 	return false;
 }
@@ -361,13 +287,18 @@ public bool IsCountable(const char sMessage[MAXLENGTH_INPUT])
 	for (int i = 0; i < sizeof(sMessage); i++)
 	{
 		if (IsCharAlpha(sMessage[i]) || IsCharNumeric(sMessage[i]) || IsCharSpace(sMessage[i]))
+		{
 			FilterText[filterPos++] = sMessage[i];
+		}
 	}
+
 	FilterText[filterPos] = '\0';
 	TrimString(FilterText);
 
 	if (CheckStringBlacklist(sMessage))
+	{
 		return isCountable;
+	}
 
 	int words = ExplodeString(FilterText, " ", ChatArray, sizeof(ChatArray), sizeof(ChatArray[]));
 
@@ -389,12 +320,14 @@ public bool IsCountable(const char sMessage[MAXLENGTH_INPUT])
 				consoleNumber = StringToInt(ChatArray[i]);
 				isCountable = true;
 			}
+
 			if (!isCountable && i + 2 < words && (strcmp(ChatArray[i + 2], "s", false) == 0 || (IsCharEqualIgnoreCase(ChatArray[i + 2][0], 's') && IsCharEqualIgnoreCase(ChatArray[i + 2][1], 'e'))))
 			{
 				consoleNumber = StringToInt(ChatArray[i]);
 				isCountable = true;
 			}
 		}
+
 		if (!isCountable)
 		{
 			char word[MAXLENGTH_INPUT];
@@ -426,6 +359,7 @@ public bool IsCountable(const char sMessage[MAXLENGTH_INPUT])
 				}
 			}
 		}
+
 		if (isCountable)
 		{
 			g_iNumber = consoleNumber;
@@ -439,7 +373,9 @@ public bool IsCountable(const char sMessage[MAXLENGTH_INPUT])
 public Action SayConsole(int client, const char[] command, int args)
 {
 	if (client)
+	{
 		return Plugin_Continue;
+	}
 
 	char sText[MAXLENGTH_INPUT];
 	GetCmdArgString(sText, sizeof(sText));
@@ -455,26 +391,36 @@ public MRESReturn Detour_ClientPrint(Handle hParams)
 	// Check if message was sent from server console
 	int iPlayer = DHookGetParam(hParams, 1);
 	if (iPlayer != 0)
+	{
 		return MRES_Ignored;
+	}
 
 	// Check if the print was sent to chat
 	EHudNotify iDestination = view_as<EHudNotify>(DHookGetParam(hParams, 2));
 	if (iDestination != HUD_PRINTTALK)
+	{
 		return MRES_Ignored;
+	}
 
 	// Get chat message and pass through display function
 	char sBuffer[MAXLENGTH_INPUT];
 	DHookGetParamString(hParams, 3, sBuffer, sizeof(sBuffer));
 	SendServerMessage(sBuffer, true);
+
 	return MRES_Supercede;
 }
 
 public int StringEnder(char[] a, int b, int c)
 {
 	if (IsCharEqualIgnoreCase(a[b], 'c'))
+	{
 		a[c - 3] = '\0';
+	}
 	else
+	{
 		a[c - 1] = '\0';
+	}
+
 	return StringToInt(a);
 }
 
@@ -495,8 +441,11 @@ public Action RepeatMsg(Handle timer, Handle pack)
 		for (int i = 1; i <= MAXPLAYERS + 1; i++)
 		{
 			if (IsValidClient(i, false, false, false))
+			{
 				ClearSyncHud(i, g_hHudSync);
+			}
 		}
+
 		return Plugin_Handled;
 	}
 
@@ -511,7 +460,9 @@ public Action RepeatMsg(Handle timer, Handle pack)
 	ReplaceString(string, sizeof(string), sONumber, sNumber);
 
 	for (int i = 1; i <= MAXPLAYERS + 1; i++)
+	{
 		SendHudMsg(i, string, true);
+	}
 
 	return Plugin_Handled;
 }
@@ -552,8 +503,10 @@ stock void RemoveTextInBraces(char[] szMessage, bool bRemoveInt = false, bool bR
 						szMessage[j] = szMessage[i];
 						j++;
 					}
+
 					i++;
 				}
+
 				szMessage[j] = '\0';
 			}
 			else if (bRemoveBracesForInt)
@@ -562,7 +515,9 @@ stock void RemoveTextInBraces(char[] szMessage, bool bRemoveInt = false, bool bR
 				for (int i = start; i <= end; i++)
 				{
 					if (szMessage[i] == '{' || szMessage[i] == '}')
+					{
 						szMessage[i] = ' ';
+					}
 				}
 			}
 		}
@@ -574,41 +529,14 @@ stock void RemoveTextInBraces(char[] szMessage, bool bRemoveInt = false, bool bR
 	}
 }
 
-stock void RemoveDuplicatePrefixAndSuffix(char[] sBuffer)
-{
-	if (!sBuffer[0] || sBuffer[0] == '\0')
-		return;
-
-	int length = strlen(sBuffer);
-
-	// Find the longest prefix
-	int prefixLength = 0;
-	while (prefixLength < length && sBuffer[prefixLength] == sBuffer[0])
-		prefixLength++;
-
-	// Find the longest suffix
-	int suffixLength = 0;
-	while (suffixLength < length && sBuffer[length - suffixLength - 1] == sBuffer[length - 1])
-		suffixLength++;
-
-	// Check if there are duplicate prefix and suffix
-	if (prefixLength > 1 && suffixLength > 1 && prefixLength + suffixLength < length)
-	{
-		// Remove duplicates
-		int newSize = length - prefixLength - suffixLength;
-		for (int i = 0; i < newSize; i++)
-			sBuffer[i] = sBuffer[i + prefixLength];
-
-		sBuffer[newSize] = '\0';
-	}
-}
-
 public bool StringContainDecimal(char[] input)
 {
 	for (int i = 0; i < strlen(input); i++)
 	{
 		if (input[i] == '.' || input[i] == ',')
+		{
 			return true;
+		}
 	}
 
 	return false;
@@ -617,7 +545,9 @@ public bool StringContainDecimal(char[] input)
 stock void PrepareHudMsg(int client, char[] sBuffer, bool isCountdown = false)
 {
 	if (!g_bEnableHud || !IsValidClient(client, false, false, false))
+	{
 		return;
+	}
 
 	SendHudMsg(client, sBuffer, isCountdown);
 }
@@ -625,7 +555,9 @@ stock void PrepareHudMsg(int client, char[] sBuffer, bool isCountdown = false)
 stock void SendHudMsg(int client, const char[] szMessage, bool isCountdown)
 {
 	if (!IsValidClient(client, false, false, false))
+	{
 		return;
+	}
 
 	float duration = isCountdown ? 1.0 : g_fHudDuration;
 	SetHudTextParams(g_fHudPos[0], g_fHudPos[1], duration, g_iHudColor[0], g_iHudColor[1], g_iHudColor[2], 255, 0, 0.0, 0.0, g_fHudFadeOutDuration);
@@ -635,84 +567,28 @@ stock void SendHudMsg(int client, const char[] szMessage, bool isCountdown)
 
 	int iChannel = g_iHUDChannel;
 	if (iChannel < 0 || iChannel > 5)
+	{
 		iChannel = 0;
+	}
 
 	bDynamicAvailable = g_bPlugin_DynamicChannels && CanTestFeatures() && GetFeatureStatus(FeatureType_Native, "GetDynamicChannel") == FeatureStatus_Available;
 
 #if defined _DynamicChannels_included_
 	if (bDynamicAvailable)
+	{
 		iHUDChannel = GetDynamicChannel(iChannel);
+	}
 #endif
 
 	if (bDynamicAvailable)
+	{
 		ShowHudText(client, iHUDChannel, szMessage);
+	}
 	else
 	{
 		ClearSyncHud(client, g_hHudSync);
 		ShowSyncHudText(client, g_hHudSync, szMessage);
 	}
-}
-
-stock bool ItContainSquarebracket(char[] szMessage)
-{
-	int i = 0;
-	bool foundOpeningBracket = false;
-
-	// Iterate through the message until the end or until we find ']' if we've already found '['
-	while (szMessage[i] != '\0')
-	{
-		if (szMessage[i] == '[')
-			foundOpeningBracket = true;
-		// If we've found a ']' and we've previously found a '[', check if there's content after ']'
-		else if (szMessage[i] == ']' && foundOpeningBracket && strlen(szMessage) > i + 1)
-			return true;
-		i++;
-	}
-
-	// If we reach here, either '[' or ']' wasn't found or there was no content after ']'
-	return false;
-}
-
-/**
- * Checks if the given string contains a valid color code.
- * 
- * @param szMessage    The string to check for color codes.
- * @return             True if a valid color code is found, false otherwise.
- */
-stock bool ItContainColorcode(const char[] szMessage)
-{
-	int len = strlen(szMessage), colorPos = 0, dummy;
-	char colorName[64];
-	bool inBrace = false;
-
-	for (int i = 0; i < len; i++)
-	{
-		if (szMessage[i] == '{')
-		{
-			inBrace = true;
-			colorPos = 0;
-			colorName[0] = '\0';
-			continue;
-		}
-
-		if (inBrace)
-		{
-			if (szMessage[i] == '}')
-			{
-				colorName[colorPos] = '\0';
-				if (colorPos > 0 && g_hColorMap.GetValue(colorName, dummy))
-					return true;
-
-				inBrace = false;
-			}
-			else if (colorPos < sizeof(colorName) - 1)
-				colorName[colorPos++] = szMessage[i];
-			else
-				inBrace = false; // Too long, reset
-		}
-	}
-
-	return false;
 }
 
 /**
@@ -733,8 +609,11 @@ stock bool IsValidHexSequence(const char[] sMessage, int startPos, int length)
 		bool isLowerHex = (c >= 'a' && c <= 'f');
 
 		if (!isDigit && !isUpperHex && !isLowerHex)
+		{
 			return false;
+		}
 	}
+
 	return true;
 }
 
@@ -774,7 +653,9 @@ stock void RemoveColorCodes(char[] sMessage)
 
 	// Check if string has other color codes
 	for (int j = 0; j < sizeof(g_sColorSymbols); j++)
+	{
 		ReplaceString(sMessage, strlen(sMessage), g_sColorSymbols[j], "", false);
+	}
 }
 
 /**
@@ -814,38 +695,7 @@ stock void SendServerMessage(const char[] sMessage, bool bScript = false)
 		g_iLastMessageTime = currentTime;
 	}
 
-	char soundp[255], soundt[255];
-	if (g_bTranslation)
-	{
-		if (kv == INVALID_HANDLE)
-			ReadT();
-
-		if (!KvJumpToKey(kv, sText))
-		{
-			KvJumpToKey(kv, sText, true);
-			KvSetString(kv, "default", sText);
-			KvRewind(kv);
-			KeyValuesToFile(kv, g_sPath);
-			KvJumpToKey(kv, sText);
-		}
-
-		bool blocked = (KvGetNum(kv, "blocked", 0) ? true : false);
-		if (blocked)
-		{
-			KvRewind(kv);
-			return;
-		}
-
-		KvGetString(kv, "sound", soundp, sizeof(soundp), "default");
-		if (strcmp(soundp, "default") == 0)
-			FormatEx(soundt, 255, "common/talk.wav");
-		else
-			FormatEx(soundt, 255, soundp);
-	}
-
 	char sFinalText[1024];
-	char sCountryTag[3];
-	char sIP[26];
 	bool isCountable = IsCountable(sTrimText);
 	bool containsDecimal = StringContainDecimal(sTrimText);
 	bool isCountdown = !containsDecimal && isCountable;
@@ -853,24 +703,17 @@ stock void SendServerMessage(const char[] sMessage, bool bScript = false)
 	for (int i = 1 ; i < MaxClients; i++)
 	{
 		if (!IsClientInGame(i) || IsFakeClient(i) || IsClientSourceTV(i))
-			continue;
-
-		if (g_bTranslation)
 		{
-			GetClientIP(i, sIP, sizeof(sIP));
-			GeoipCode2(sIP, sCountryTag);
-			KvGetString(kv, sCountryTag, sText, sizeof(sText), "LANGMISSING");
-
-			if (strcmp(sText, "LANGMISSING") == 0)
-				KvGetString(kv, "default", sText, sizeof(sText));
+			continue;
 		}
 
 		FormatEx(sFinalText, sizeof(sFinalText), "%s", sText);
 
-		if (!g_bRemoveConsoleTag || g_bRemoveConsoleTag && (!ItContainSquarebracket(sText) || !ItContainColorcode(sText)))
-			// Because vscript messages can use custom chat colors, don't add console tag in this case
-			if (!bScript)
-				FormatEx(sFinalText, sizeof(sFinalText), "%s%s", g_sConsoleTag, sText);
+		// Because vscript messages can use custom chat colors, don't add console tag in this case
+		if (!bScript)
+		{
+			FormatEx(sFinalText, sizeof(sFinalText), "%s%s", g_sConsoleTag, sText);
+		}
 
 		if (isCountable && GetRoundTimeAtTimerEnd() > 0)
 		{
@@ -888,80 +731,15 @@ stock void SendServerMessage(const char[] sMessage, bool bScript = false)
 		// Prepare HUD message
 		if (g_bEnableHud)
 		{
-			if (g_bHudMapSymbols)
-				RemoveDuplicatePrefixAndSuffix(sTrimText);
-
 			RemoveTextInBraces(sTrimText, true, true);
-
 			char szMessage[MAXLENGTH_INPUT + 10];
-			if (g_bHudSymbols)
-				FormatEx(szMessage, sizeof(szMessage), ">> %s <<", sTrimText);
-			else
-				FormatEx(szMessage, sizeof(szMessage), "%s", sTrimText);
-
+			FormatEx(szMessage, sizeof(szMessage), "%s", sTrimText);
 			PrepareHudMsg(i, szMessage, isCountdown);
 
 			if (isCountable)
-				InitCountDown(szMessage);
-		}
-	}
-
-	if (g_bTranslation)
-	{
-		if (strcmp(soundp, "none", false) != 0)
-			EmitSoundToAll(soundt);
-
-		if (KvJumpToKey(kv, "hinttext"))
-		{
-			for (int i = 1 ; i < MaxClients; i++)
 			{
-				if (!IsClientInGame(i) || IsFakeClient(i) || IsClientSourceTV(i))
-					continue;
-
-				GetClientIP(i, sIP, sizeof(sIP));
-				GeoipCode2(sIP, sCountryTag);
-				KvGetString(kv, sCountryTag, sText, sizeof(sText), "LANGMISSING");
-
-				if (strcmp(sText, "LANGMISSING") == 0)
-					KvGetString(kv, "default", sText, sizeof(sText));
-
-				PrintHintText(i, sText);
+				InitCountDown(szMessage);
 			}
 		}
-
-		KvRewind(kv);
 	}
-}
-
-void InitColorMap()
-{
-	if (g_hColorMap != null)
-		delete g_hColorMap;
-
-	g_hColorMap = new StringMap();
-
-	char colors[][] = {
-		"aliceblue", "allies", "ancient", "antiquewhite", "aqua", "aquamarine", "arcana", "axis", "azure",
-		"beige", "bisque", "black", "blanchedalmond", "blue", "blueviolet", "brown", "burlywood",
-		"cadetblue", "chartreuse", "chocolate", "coral", "cornflowerblue", "cornsilk", "crimson", "cyan",
-		"darkblue", "darkcyan", "darkgoldenrod", "darkgray", "darkgreen", "darkkhaki", "darkmagenta", "darkolivegreen",
-		"darkorange", "darkorchid", "darkred", "darksalmon", "darkseagreen", "darkslateblue", "darkslategray", "darkturquoise",
-		"darkviolet", "deeppink", "deepskyblue", "dimgray", "dodgerblue", "exalted", "firebrick", "floralwhite",
-		"forestgreen", "fuchsia", "fullblue", "fullred", "gainsboro", "ghostwhite", "gold", "goldenrod",
-		"gray", "grey", "green", "greenyellow", "honeydew", "hotpink", "indianred", "indigo", "ivory",
-		"khaki", "lavender", "lavenderblush", "lawngreen", "lemonchiffon", "lightblue", "lightcoral", "lightcyan",
-		"lightgoldenrodyellow", "lightgray", "lightgreen", "lightpink", "lightsalmon", "lightseagreen", "lightskyblue", "lightslategray",
-		"lightslategrey", "lightsteelblue", "lightyellow", "lime", "limegreen", "linen", "magenta", "maroon",
-		"mediumaquamarine", "mediumblue", "mediumorchid", "mediumpurple", "mediumseagreen", "mediumslateblue", "mediumspringgreen", "mediumturquoise",
-		"mediumvioletred", "midnightblue", "mintcream", "mistyrose", "moccasin", "navajowhite", "navy", "normal", "oldlace",
-		"olive", "olivedrab", "orange", "orangered", "orchid", "palegoldenrod", "palegreen", "paleturquoise",
-		"palevioletred", "papayawhip", "peachpuff", "peru", "pink", "plum", "powderblue", "purple",
-		"rare", "red", "rosybrown", "royalblue", "saddlebrown", "salmon", "sandybrown", "seagreen",
-		"seashell", "sienna", "silver", "skyblue", "slateblue", "slategray", "slategrey", "snow",
-		"springgreen", "steelblue", "tan", "teal", "thistle", "tomato", "turquoise", "uncommon", "unique",
-		"unusual", "valve", "vintage", "violet", "wheat", "white", "whitesmoke", "yellow", "yellowgreen"
-	};
-
-	for (int i = 0; i < sizeof(colors); i++)
-		g_hColorMap.SetValue(colors[i], 1);
 }
