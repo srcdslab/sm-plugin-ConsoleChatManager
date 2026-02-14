@@ -78,7 +78,7 @@ public Plugin myinfo =
 	name = "ConsoleChatManager",
 	author = "Franc1sco Steam: franug, maxime1907, inGame, AntiTeal, Oylsister, .Rushaway, tilgep, koen",
 	description = "Interact with console messages",
-	version = "2.4.4",
+	version = "2.4.5",
 	url = ""
 };
 
