@@ -39,6 +39,7 @@ enum EHudNotify
 }
 
 #define MAXLENGTH_INPUT 512
+#define MAX_SAYTEXT2_LENGTH 249
 #define NORMALHUD 1
 
 ConVar g_ConsoleMessage, g_EnableTranslation, g_cRemoveConsoleTag;
@@ -78,7 +79,7 @@ public Plugin myinfo =
 	name = "ConsoleChatManager",
 	author = "Franc1sco Steam: franug, maxime1907, inGame, AntiTeal, Oylsister, .Rushaway, tilgep, koen",
 	description = "Interact with console messages",
-	version = "2.4.5",
+	version = "2.4.6",
 	url = ""
 };
 
@@ -797,6 +798,13 @@ stock void SendServerMessage(const char[] sMessage, bool bScript = false)
 	// Store the raw message to sTrimText then we clean up the string
 	strcopy(sTrimText, sizeof(sTrimText), sText);
 	RemoveColorCodes(sTrimText);
+
+	// Overflow protection
+	if (MAX_SAYTEXT2_LENGTH - strlen(sTrimText) <= 1)
+	{
+		PrintToServer("[ConsoleChatManager] Message is too long to be sent to clients, skipping display. Message: %s", sTrimText);
+		return;
+	}
 
 	if (g_bBlockSpam)
 	{
