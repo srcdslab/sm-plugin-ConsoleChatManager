@@ -39,6 +39,7 @@ enum EHudNotify
 }
 
 #define MAXLENGTH_INPUT 512
+#define MAXLENGTH_SAYTEXT2 249
 #define NORMALHUD 1
 
 ConVar g_ConsoleMessage, g_EnableTranslation, g_cRemoveConsoleTag;
@@ -78,7 +79,7 @@ public Plugin myinfo =
 	name = "ConsoleChatManager",
 	author = "Franc1sco Steam: franug, maxime1907, inGame, AntiTeal, Oylsister, .Rushaway, tilgep, koen",
 	description = "Interact with console messages",
-	version = "2.4.5",
+	version = "2.4.6",
 	url = ""
 };
 
@@ -881,6 +882,12 @@ stock void SendServerMessage(const char[] sMessage, bool bScript = false)
 
 			FormatEx(roundTimeText, sizeof(roundTimeText), " {orange}@ %i:%s%i", minutes, (seconds < 10 ? "0" : ""), seconds);
 			FormatEx(sFinalText, sizeof(sFinalText), "%s%s", sFinalText, roundTimeText);
+		}
+
+		// Overflow protection
+		if (MAXLENGTH_SAYTEXT2 - strlen(sFinalText) <= 1)
+		{
+			return;
 		}
 
 		CPrintToChat(i, sFinalText);
