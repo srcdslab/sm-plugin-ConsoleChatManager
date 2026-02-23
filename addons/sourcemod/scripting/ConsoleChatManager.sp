@@ -37,6 +37,7 @@ enum EHudNotify
 }
 
 #define MAXLENGTH_INPUT 512
+#define MAXLENGTH_SAYTEXT2 249
 #define NORMALHUD 1
 
 ConVar g_hCVar_ConsoleMessage;
@@ -80,7 +81,7 @@ public Plugin myinfo =
 	name = "ConsoleChatManager-Lite",
 	author = "Franc1sco Franug, maxime1907, inGame, AntiTeal, Oylsister, .Rushaway, tilgep, koen",
 	description = "Interact with console messages",
-	version = "2.4.4",
+	version = "2.4.5",
 	url = ""
 };
 
@@ -542,16 +543,6 @@ public bool StringContainDecimal(char[] input)
 	return false;
 }
 
-stock void PrepareHudMsg(int client, char[] sBuffer, bool isCountdown = false)
-{
-	if (!g_bEnableHud || !IsValidClient(client, false, false, false))
-	{
-		return;
-	}
-
-	SendHudMsg(client, sBuffer, isCountdown);
-}
-
 stock void SendHudMsg(int client, const char[] szMessage, bool isCountdown)
 {
 	if (!IsValidClient(client, false, false, false))
@@ -700,46 +691,48 @@ stock void SendServerMessage(const char[] sMessage, bool bScript = false)
 	bool containsDecimal = StringContainDecimal(sTrimText);
 	bool isCountdown = !containsDecimal && isCountable;
 
-	for (int i = 1 ; i < MaxClients; i++)
+	FormatEx(sFinalText, sizeof(sFinalText), "%s", sText);
+
+	// Because vscript messages can use custom chat colors, don't add console tag in this case
+	if (!bScript)
 	{
-		if (!IsClientInGame(i) || IsFakeClient(i) || IsClientSourceTV(i))
+		FormatEx(sFinalText, sizeof(sFinalText), "%s%s", g_sConsoleTag, sText);
+	}
+
+	if (isCountable && GetRoundTimeAtTimerEnd() > 0)
+	{
+		float fMinutes = GetRoundTimeAtTimerEnd() / 60.0;
+		int minutes = RoundToFloor(fMinutes);
+		int seconds = GetRoundTimeAtTimerEnd() - minutes * 60;
+		char roundTimeText[32];
+
+		FormatEx(roundTimeText, sizeof(roundTimeText), " {orange}@ %i:%s%i", minutes, (seconds < 10 ? "0" : ""), seconds);
+		FormatEx(sFinalText, sizeof(sFinalText), "%s%s", sFinalText, roundTimeText);
+	}
+
+	// Overflow protection
+	if (MAXLENGTH_SAYTEXT2 - strlen(sFinalText) <= 1)
+	{
+		PrintToServer("[ConsoleChatManager] Message is too long to be sent to clients, skipping display. Message: %s", sFinalText);
+		return;
+	}
+
+	CPrintToChatAll(sFinalText);
+
+	// Prepare HUD message
+	if (g_bEnableHud)
+	{
+		RemoveTextInBraces(sTrimText, true, true);
+		char szMessage[MAXLENGTH_INPUT + 10];
+		FormatEx(szMessage, sizeof(szMessage), "%s", sTrimText);
+		for (int i = 1 ; i < MaxClients; i++)
 		{
-			continue;
+			SendHudMsg(i, szMessage, isCountdown);
 		}
 
-		FormatEx(sFinalText, sizeof(sFinalText), "%s", sText);
-
-		// Because vscript messages can use custom chat colors, don't add console tag in this case
-		if (!bScript)
+		if (isCountable)
 		{
-			FormatEx(sFinalText, sizeof(sFinalText), "%s%s", g_sConsoleTag, sText);
-		}
-
-		if (isCountable && GetRoundTimeAtTimerEnd() > 0)
-		{
-			float fMinutes = GetRoundTimeAtTimerEnd() / 60.0;
-			int minutes = RoundToFloor(fMinutes);
-			int seconds = GetRoundTimeAtTimerEnd() - minutes * 60;
-			char roundTimeText[32];
-
-			FormatEx(roundTimeText, sizeof(roundTimeText), " {orange}@ %i:%s%i", minutes, (seconds < 10 ? "0" : ""), seconds);
-			FormatEx(sFinalText, sizeof(sFinalText), "%s%s", sFinalText, roundTimeText);
-		}
-
-		CPrintToChat(i, sFinalText);
-
-		// Prepare HUD message
-		if (g_bEnableHud)
-		{
-			RemoveTextInBraces(sTrimText, true, true);
-			char szMessage[MAXLENGTH_INPUT + 10];
-			FormatEx(szMessage, sizeof(szMessage), "%s", sTrimText);
-			PrepareHudMsg(i, szMessage, isCountdown);
-
-			if (isCountable)
-			{
-				InitCountDown(szMessage);
-			}
+			InitCountDown(szMessage);
 		}
 	}
 }
