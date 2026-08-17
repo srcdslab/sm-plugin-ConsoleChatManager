@@ -9,7 +9,7 @@ ConsoleChatManager is a SourceMod plugin for Source engine games that manages co
 - **Main Plugin**: `addons/sourcemod/scripting/ConsoleChatManager.sp` (950+ lines)
 - **Game Data**: `addons/sourcemod/gamedata/ConsoleChatManager.games.txt` - DHooks signatures for ClientPrint detour
 - **Configuration**: `addons/sourcemod/configs/consolechatmanager/` - Translation and message replacement configs
-- **Build System**: SourceKnight (`sourceknight.yaml`) with automated CI/CD
+- **Build System**: Native GitHub Actions workflow (`.github/workflows/ci.yml`) with automated CI/CD
 
 ### Key Features
 - Console message interception and replacement
@@ -22,7 +22,7 @@ ConsoleChatManager is a SourceMod plugin for Source engine games that manages co
 ## Technical Environment
 
 ### Dependencies
-- **SourceMod**: 1.11.0+ (specified in sourceknight.yaml)
+- **SourceMod**: 1.12.x (specified in `.github/workflows/ci.yml`)
 - **Required Includes**:
   - `multicolors` - Color formatting library
   - `utilshelper` - Utility functions
@@ -30,7 +30,7 @@ ConsoleChatManager is a SourceMod plugin for Source engine games that manages co
   - `DynamicChannels` (optional) - Advanced HUD channel management
 
 ### Build System
-- **Tool**: SourceKnight 0.2
+- **Tool**: Native GitHub Actions (`rumblefrog/setup-sp`)
 - **Compiler**: SourceMod spcomp (latest compatible)
 - **CI/CD**: GitHub Actions with automated building, testing, and releases
 - **Output**: `addons/sourcemod/plugins/ConsoleChatManager.smx`
@@ -148,11 +148,8 @@ DHookEnableDetour(g_hClientPrintDtr, false, Detour_ClientPrint);
 
 ### Build Process
 ```bash
-# Using SourceKnight
-sourceknight build
-
-# Manual compilation (if needed)
-spcomp ConsoleChatManager.sp -o ConsoleChatManager.smx
+# Manual compilation
+spcomp -i include -o ConsoleChatManager.smx ConsoleChatManager.sp
 ```
 
 ### Testing Approach
@@ -254,7 +251,7 @@ public void OnAllPluginsLoaded()
 - Tag releases in Git for automated CI/CD
 
 ### Packaging
-- SourceKnight automatically packages plugins
+- The GitHub Actions CI workflow automatically packages plugins
 - Include all required config files and gamedata
 - Test final package on clean server installation
 
