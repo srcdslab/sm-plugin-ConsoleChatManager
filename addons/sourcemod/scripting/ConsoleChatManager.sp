@@ -172,6 +172,8 @@ public void OnPluginStart()
 		else
 			LogMessage("[ConsoleChatManager] Successfully detoured ClientPrint()");
 	}
+
+	delete gd;
 }
 
 public void OnPluginEnd()
