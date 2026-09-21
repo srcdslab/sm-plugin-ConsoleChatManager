@@ -79,7 +79,7 @@ public Plugin myinfo =
 	name = "ConsoleChatManager",
 	author = "Franc1sco Steam: franug, maxime1907, inGame, AntiTeal, Oylsister, .Rushaway, tilgep, koen",
 	description = "Interact with console messages",
-	version = "2.4.6",
+	version = "2.4.7",
 	url = ""
 };
 
@@ -172,6 +172,8 @@ public void OnPluginStart()
 		else
 			LogMessage("[ConsoleChatManager] Successfully detoured ClientPrint()");
 	}
+
+	delete gd;
 }
 
 public void OnPluginEnd()
