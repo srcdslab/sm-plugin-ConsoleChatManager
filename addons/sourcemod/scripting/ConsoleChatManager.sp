@@ -69,17 +69,17 @@ int g_iLastMessageTime = -1;
 int g_iRoundStartedTime = -1;
 int g_iHUDChannel, g_iBlockSpamDelay;
 
-Handle kv;
+KeyValues kv;
 Handle g_hTimerHandle, g_hHudSync;
 
-DHookSetup g_hClientPrintDtr;
+DynamicDetour g_hClientPrintDtr;
 
 public Plugin myinfo =
 {
 	name = "ConsoleChatManager",
 	author = "Franc1sco Steam: franug, maxime1907, inGame, AntiTeal, Oylsister, .Rushaway, tilgep, koen",
 	description = "Interact with console messages",
-	version = "2.4.8",
+	version = "2.4.9",
 	url = ""
 };
 
@@ -167,7 +167,7 @@ public void OnPluginStart()
 	}
 	else
 	{
-		if (!DHookEnableDetour(g_hClientPrintDtr, false, Detour_ClientPrint))
+		if (!g_hClientPrintDtr.Enable(Hook_Pre, Detour_ClientPrint))
 			LogError("[ConsoleChatManager] Failed to detour ClientPrint()");
 		else
 			LogMessage("[ConsoleChatManager] Successfully detoured ClientPrint()");
@@ -247,7 +247,7 @@ public void OnConVarChanged(ConVar convar, char[] oldValue, char[] newValue)
 		g_iBlockSpamDelay = g_cBlockSpamDelay.IntValue;
 }
 
-public void Event_RoundStart(Handle event, const char[] name, bool dontBroadcast)
+public void Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
 {
 	g_iRoundStartedTime = GetTime();
 	DeleteTimer();
@@ -255,8 +255,8 @@ public void Event_RoundStart(Handle event, const char[] name, bool dontBroadcast
 
 public int GetCurrentRoundTime()
 {
-	Handle hFreezeTime = FindConVar("mp_freezetime"); // Freezetime Handle
-	int freezeTime = GetConVarInt(hFreezeTime); // Freezetime in seconds
+	ConVar hFreezeTime = FindConVar("mp_freezetime"); // Freezetime Handle
+	int freezeTime = hFreezeTime.IntValue; // Freezetime in seconds
 	return GameRules_GetProp("m_iRoundTime") - ( (GetTime() - g_iRoundStartedTime) - freezeTime );
 }
 
@@ -267,10 +267,9 @@ public int GetRoundTimeAtTimerEnd()
 
 public void DeleteTimer()
 {
-	if (g_hTimerHandle != INVALID_HANDLE)
+	if (g_hTimerHandle != null)
 	{
-		KillTimer(g_hTimerHandle);
-		g_hTimerHandle = INVALID_HANDLE;
+		delete g_hTimerHandle;
 	}
 }
 
@@ -311,12 +310,12 @@ public void ReadT()
 		BuildPath(Path_SM, g_sPath, sizeof(g_sPath), "configs/consolechatmanager/%s.txt", map);
 	}
 
-	kv = CreateKeyValues("Console_C");
+	kv = new KeyValues("Console_C");
 	// File not found, create the file
 	if (!FileExists(g_sPath))
-		KeyValuesToFile(kv, g_sPath);
+		kv.ExportToFile(g_sPath);
 	else
-		FileToKeyValues(kv, g_sPath);
+		kv.ImportFromFile(g_sPath);
 
 	CheckSounds();
 }
@@ -326,11 +325,11 @@ void CheckSounds()
 	PrecacheSound("common/talk.wav", false);
 
 	char buffer[255];
-	if (KvGotoFirstSubKey(kv))
+	if (kv.GotoFirstSubKey())
 	{
 		do
 		{
-			KvGetString(kv, "sound", buffer, 64, "default");
+			kv.GetString("sound", buffer, 64, "default");
 			if (strcmp(buffer, "default", false) != 0)
 			{
 				PrecacheSound(buffer);
@@ -339,10 +338,10 @@ void CheckSounds()
 				AddFileToDownloadsTable(buffer);
 			}
 
-		} while (KvGotoNextKey(kv));
+		} while (kv.GotoNextKey());
 	}
 
-	KvRewind(kv);
+	kv.Rewind();
 }
 
 public bool CheckStringBlacklist(const char[] string)
@@ -453,21 +452,21 @@ public Action SayConsole(int client, const char[] command, int args)
 	return Plugin_Handled;
 }
 
-public MRESReturn Detour_ClientPrint(Handle hParams)
+public MRESReturn Detour_ClientPrint(DHookParam hParams)
 {
 	// Check if message was sent from server console
-	int iPlayer = DHookGetParam(hParams, 1);
+	int iPlayer = hParams.Get(1);
 	if (iPlayer != 0)
 		return MRES_Ignored;
 
 	// Check if the print was sent to chat
-	EHudNotify iDestination = view_as<EHudNotify>(DHookGetParam(hParams, 2));
+	EHudNotify iDestination = view_as<EHudNotify>(hParams.Get(2));
 	if (iDestination != HUD_PRINTTALK)
 		return MRES_Ignored;
 
 	// Get chat message and pass through display function
 	char sBuffer[MAXLENGTH_INPUT];
-	DHookGetParamString(hParams, 3, sBuffer, sizeof(sBuffer));
+	hParams.GetString(3, sBuffer, sizeof(sBuffer));
 	SendServerMessage(sBuffer, true);
 	return MRES_Supercede;
 }
@@ -489,7 +488,7 @@ public void InitCountDown(const char[] szMessage)
 	TimerPack.WriteString(szMessage);
 }
 
-public Action RepeatMsg(Handle timer, Handle pack)
+public Action RepeatMsg(Handle timer, DataPack pack)
 {
 	g_iNumber--;
 	if (g_iNumber <= 0)
@@ -505,8 +504,8 @@ public Action RepeatMsg(Handle timer, Handle pack)
 
 	char string[MAXLENGTH_INPUT + 10], sNumber[8], sONumber[8];
 
-	ResetPack(pack);
-	ReadPackString(pack, string, sizeof(string));
+	pack.Reset();
+	pack.ReadString(string, sizeof(string));
 
 	IntToString(g_iOnumber, sONumber, sizeof(sONumber));
 	IntToString(g_iNumber, sNumber, sizeof(sNumber));
@@ -820,26 +819,26 @@ stock void SendServerMessage(const char[] sMessage, bool bScript = false)
 	char soundp[255], soundt[255];
 	if (g_bTranslation)
 	{
-		if (kv == INVALID_HANDLE)
+		if (kv == null)
 			ReadT();
 
-		if (!KvJumpToKey(kv, sText))
+		if (!kv.JumpToKey(sText))
 		{
-			KvJumpToKey(kv, sText, true);
-			KvSetString(kv, "default", sText);
-			KvRewind(kv);
-			KeyValuesToFile(kv, g_sPath);
-			KvJumpToKey(kv, sText);
+			kv.JumpToKey(sText, true);
+			kv.SetString("default", sText);
+			kv.Rewind();
+			kv.ExportToFile(g_sPath);
+			kv.JumpToKey(sText);
 		}
 
-		bool blocked = (KvGetNum(kv, "blocked", 0) ? true : false);
+		bool blocked = (kv.GetNum("blocked", 0) ? true : false);
 		if (blocked)
 		{
-			KvRewind(kv);
+			kv.Rewind();
 			return;
 		}
 
-		KvGetString(kv, "sound", soundp, sizeof(soundp), "default");
+		kv.GetString("sound", soundp, sizeof(soundp), "default");
 		if (strcmp(soundp, "default") == 0)
 			FormatEx(soundt, 255, "common/talk.wav");
 		else
@@ -862,10 +861,10 @@ stock void SendServerMessage(const char[] sMessage, bool bScript = false)
 		{
 			GetClientIP(i, sIP, sizeof(sIP));
 			GeoipCode2(sIP, sCountryTag);
-			KvGetString(kv, sCountryTag, sText, sizeof(sText), "LANGMISSING");
+			kv.GetString(sCountryTag, sText, sizeof(sText), "LANGMISSING");
 
 			if (strcmp(sText, "LANGMISSING") == 0)
-				KvGetString(kv, "default", sText, sizeof(sText));
+				kv.GetString("default", sText, sizeof(sText));
 		}
 
 		FormatEx(sFinalText, sizeof(sFinalText), "%s", sText);
@@ -920,7 +919,7 @@ stock void SendServerMessage(const char[] sMessage, bool bScript = false)
 		if (strcmp(soundp, "none", false) != 0)
 			EmitSoundToAll(soundt);
 
-		if (KvJumpToKey(kv, "hinttext"))
+		if (kv.JumpToKey("hinttext"))
 		{
 			for (int i = 1 ; i < MaxClients; i++)
 			{
@@ -929,16 +928,16 @@ stock void SendServerMessage(const char[] sMessage, bool bScript = false)
 
 				GetClientIP(i, sIP, sizeof(sIP));
 				GeoipCode2(sIP, sCountryTag);
-				KvGetString(kv, sCountryTag, sText, sizeof(sText), "LANGMISSING");
+				kv.GetString(sCountryTag, sText, sizeof(sText), "LANGMISSING");
 
 				if (strcmp(sText, "LANGMISSING") == 0)
-					KvGetString(kv, "default", sText, sizeof(sText));
+					kv.GetString("default", sText, sizeof(sText));
 
 				PrintHintText(i, sText);
 			}
 		}
 
-		KvRewind(kv);
+		kv.Rewind();
 	}
 }
 
