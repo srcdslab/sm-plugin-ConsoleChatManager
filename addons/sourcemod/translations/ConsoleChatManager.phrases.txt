@@ -1,0 +1,13 @@
+"Phrases"
+{
+	"Translations Reloaded"
+	{
+		"en"		"Translation file has been reloaded."
+		"fr"		"Le fichier de traduction a été rechargé."
+		"ru"		"Файл перевода перезагружен."
+		"es"		"El archivo de traducción ha sido recargado."
+		"de"		"Die Übersetzungsdatei wurde neu geladen."
+		"pt"		"O arquivo de tradução foi recarregado."
+		"chi"		"翻译文件已重新加载。"
+	}
+}
