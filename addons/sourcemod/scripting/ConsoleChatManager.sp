@@ -79,12 +79,14 @@ public Plugin myinfo =
 	name = "ConsoleChatManager",
 	author = "Franc1sco Steam: franug, maxime1907, inGame, AntiTeal, Oylsister, .Rushaway, tilgep, koen",
 	description = "Interact with console messages",
-	version = "2.4.9",
+	version = "2.4.10",
 	url = ""
 };
 
 public void OnPluginStart()
 {
+	LoadTranslations("ConsoleChatManager.phrases");
+
 	HookEvent("round_start", Event_RoundStart, EventHookMode_PostNoCopy);
 
 	DeleteTimer();
@@ -291,7 +293,7 @@ stock void UpdateHudColor()
 public Action Command_ReloadConfig(int client, int argc)
 {
 	ReadT();
-	CReplyToCommand(client, "{green}[CCM] {default}Translation file has been reloaded.");
+	CReplyToCommand(client, "{green}[CCM] {default}%t", "Translations Reloaded");
 	LogAction(client, -1, "[CCM] %L Reloaded the translation file.", client);
 	return Plugin_Handled;
 }
