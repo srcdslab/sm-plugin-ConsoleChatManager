@@ -79,7 +79,7 @@ public Plugin myinfo =
 	name = "ConsoleChatManager",
 	author = "Franc1sco Steam: franug, maxime1907, inGame, AntiTeal, Oylsister, .Rushaway, tilgep, koen",
 	description = "Interact with console messages",
-	version = "2.4.10",
+	version = "2.4.11",
 	url = ""
 };
 
@@ -336,7 +336,7 @@ void CheckSounds()
 			{
 				PrecacheSound(buffer);
 
-				FormatEx(buffer, 255, "sound/%s", buffer);
+				Format(buffer, 255, "sound/%s", buffer);
 				AddFileToDownloadsTable(buffer);
 			}
 
@@ -649,11 +649,11 @@ stock void SendHudMsg(int client, const char[] szMessage, bool isCountdown)
 #endif
 
 	if (bDynamicAvailable)
-		ShowHudText(client, iHUDChannel, szMessage);
+		ShowHudText(client, iHUDChannel, "%s", szMessage);
 	else
 	{
 		ClearSyncHud(client, g_hHudSync);
-		ShowSyncHudText(client, g_hHudSync, szMessage);
+		ShowSyncHudText(client, g_hHudSync, "%s", szMessage);
 	}
 }
 
@@ -844,7 +844,7 @@ stock void SendServerMessage(const char[] sMessage, bool bScript = false)
 		if (strcmp(soundp, "default") == 0)
 			FormatEx(soundt, 255, "common/talk.wav");
 		else
-			FormatEx(soundt, 255, soundp);
+			strcopy(soundt, 255, soundp);
 	}
 
 	char sFinalText[1024];
@@ -854,7 +854,7 @@ stock void SendServerMessage(const char[] sMessage, bool bScript = false)
 	bool containsDecimal = StringContainDecimal(sTrimText);
 	bool isCountdown = !containsDecimal && isCountable;
 
-	for (int i = 1 ; i < MaxClients; i++)
+	for (int i = 1 ; i <= MaxClients; i++)
 	{
 		if (!IsClientInGame(i) || IsFakeClient(i) || IsClientSourceTV(i))
 			continue;
@@ -887,13 +887,13 @@ stock void SendServerMessage(const char[] sMessage, bool bScript = false)
 			FormatEx(sFinalText, sizeof(sFinalText), "%s%s", sFinalText, roundTimeText);
 		}
 
-		// Overflow protection
+		// Overflow protection: skip this player, but keep going so the translation KeyValues gets rewound
 		if (MAXLENGTH_SAYTEXT2 - strlen(sFinalText) <= 1)
 		{
-			return;
+			continue;
 		}
 
-		CPrintToChat(i, sFinalText);
+		CPrintToChat(i, "%s", sFinalText);
 
 		// Prepare HUD message
 		if (g_bEnableHud)
@@ -923,7 +923,7 @@ stock void SendServerMessage(const char[] sMessage, bool bScript = false)
 
 		if (kv.JumpToKey("hinttext"))
 		{
-			for (int i = 1 ; i < MaxClients; i++)
+			for (int i = 1 ; i <= MaxClients; i++)
 			{
 				if (!IsClientInGame(i) || IsFakeClient(i) || IsClientSourceTV(i))
 					continue;
@@ -935,7 +935,7 @@ stock void SendServerMessage(const char[] sMessage, bool bScript = false)
 				if (strcmp(sText, "LANGMISSING") == 0)
 					kv.GetString("default", sText, sizeof(sText));
 
-				PrintHintText(i, sText);
+				PrintHintText(i, "%s", sText);
 			}
 		}
 
