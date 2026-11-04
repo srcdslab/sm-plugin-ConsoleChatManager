@@ -79,7 +79,7 @@ public Plugin myinfo =
 	name = "ConsoleChatManager",
 	author = "Franc1sco Steam: franug, maxime1907, inGame, AntiTeal, Oylsister, .Rushaway, tilgep, koen",
 	description = "Interact with console messages",
-	version = "2.4.11",
+	version = "2.4.12",
 	url = ""
 };
 
@@ -271,7 +271,10 @@ public void DeleteTimer()
 {
 	if (g_hTimerHandle != null)
 	{
-		delete g_hTimerHandle;
+		// KillTimer, not delete: RepeatMsg calls this from the timer's own callback,
+		// and deleting a running timer frees its handle twice.
+		KillTimer(g_hTimerHandle);
+		g_hTimerHandle = null;
 	}
 }
 
