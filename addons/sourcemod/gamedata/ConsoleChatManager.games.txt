@@ -14,6 +14,7 @@
                 "library"       "server"
                 "windows"       "\x55\x8B\xEC\x83\x7D\x08\x00\x74\x2A\xA1\x2A\x2A\x2A\x2A\x56\x6A\x00\x8B\x30\xE8\x2A\x2A\x2A\x2A\x8B\x0D\x2A\x2A\x2A\x2A\x83\xC4\x04\x50\xFF\x75\x08\xFF\x56\x60\x5E\x85\xC0\x74\x2A\x6A\x00"
                 "linux"         "@_ZL18Script_ClientPrintP9HSCRIPT__iPKc"
+                "linux64"         "@_ZL18Script_ClientPrintP9HSCRIPT__iPKc"
             }
         }
         "Functions"

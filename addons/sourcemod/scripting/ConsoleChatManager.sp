@@ -74,14 +74,14 @@ int g_iBlockSpamDelay;
 Handle g_hTimerHandle;
 Handle g_hHudSync;
 
-DHookSetup g_hClientPrintDtr;
+DynamicDetour g_hClientPrintDtr;
 
 public Plugin myinfo =
 {
 	name = "ConsoleChatManager-Lite",
 	author = "Franc1sco Franug, maxime1907, inGame, AntiTeal, Oylsister, .Rushaway, tilgep, koen",
 	description = "Interact with console messages",
-	version = "2.4.6",
+	version = "2.4.12",
 	url = ""
 };
 
@@ -153,15 +153,17 @@ public void OnPluginStart()
 	}
 	else
 	{
-		if (!DHookEnableDetour(g_hClientPrintDtr, false, Detour_ClientPrint))
+		if (!g_hClientPrintDtr.Enable(Hook_Pre, Detour_ClientPrint))
 		{
 			LogError("Failed to detour ClientPrint()!");
 		}
 		else
 		{
-			LogMessage("Failed Successfully detoured ClientPrint()!");
+			LogMessage("[ConsoleChatManager-Lite] Successfully detoured ClientPrint()");
 		}
 	}
+
+	delete gd;
 }
 
 public void OnAllPluginsLoaded()
@@ -225,7 +227,7 @@ public void OnConVarChanged(ConVar convar, char[] oldValue, char[] newValue)
 	}
 }
 
-public void Event_RoundStart(Handle event, const char[] name, bool dontBroadcast)
+public void Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
 {
 	g_iRoundStartedTime = GetTime();
 	DeleteTimer();
@@ -233,8 +235,8 @@ public void Event_RoundStart(Handle event, const char[] name, bool dontBroadcast
 
 public int GetCurrentRoundTime()
 {
-	Handle hFreezeTime = FindConVar("mp_freezetime"); // Freezetime Handle
-	int freezeTime = GetConVarInt(hFreezeTime); // Freezetime in seconds
+	ConVar hFreezeTime = FindConVar("mp_freezetime"); // Freezetime Handle
+	int freezeTime = hFreezeTime.IntValue; // Freezetime in seconds
 	return GameRules_GetProp("m_iRoundTime") - ( (GetTime() - g_iRoundStartedTime) - freezeTime );
 }
 
@@ -245,10 +247,12 @@ public int GetRoundTimeAtTimerEnd()
 
 public void DeleteTimer()
 {
-	if (g_hTimerHandle != INVALID_HANDLE)
+	if (g_hTimerHandle != null)
 	{
+		// KillTimer, not delete: RepeatMsg calls this from the timer's own callback,
+		// and deleting a running timer frees its handle twice.
 		KillTimer(g_hTimerHandle);
-		g_hTimerHandle = INVALID_HANDLE;
+		g_hTimerHandle = null;
 	}
 }
 
@@ -387,17 +391,17 @@ public Action SayConsole(int client, const char[] command, int args)
 	return Plugin_Handled;
 }
 
-public MRESReturn Detour_ClientPrint(Handle hParams)
+public MRESReturn Detour_ClientPrint(DHookParam hParams)
 {
 	// Check if message was sent from server console
-	int iPlayer = DHookGetParam(hParams, 1);
+	int iPlayer = hParams.Get(1);
 	if (iPlayer != 0)
 	{
 		return MRES_Ignored;
 	}
 
 	// Check if the print was sent to chat
-	EHudNotify iDestination = view_as<EHudNotify>(DHookGetParam(hParams, 2));
+	EHudNotify iDestination = view_as<EHudNotify>(hParams.Get(2));
 	if (iDestination != HUD_PRINTTALK)
 	{
 		return MRES_Ignored;
@@ -405,7 +409,7 @@ public MRESReturn Detour_ClientPrint(Handle hParams)
 
 	// Get chat message and pass through display function
 	char sBuffer[MAXLENGTH_INPUT];
-	DHookGetParamString(hParams, 3, sBuffer, sizeof(sBuffer));
+	hParams.GetString(3, sBuffer, sizeof(sBuffer));
 	SendServerMessage(sBuffer, true);
 
 	return MRES_Supercede;
@@ -433,7 +437,7 @@ public void InitCountDown(const char[] szMessage)
 	TimerPack.WriteString(szMessage);
 }
 
-public Action RepeatMsg(Handle timer, Handle pack)
+public Action RepeatMsg(Handle timer, DataPack pack)
 {
 	g_iNumber--;
 	if (g_iNumber <= 0)
@@ -452,8 +456,8 @@ public Action RepeatMsg(Handle timer, Handle pack)
 
 	char string[MAXLENGTH_INPUT + 10], sNumber[8], sONumber[8];
 
-	ResetPack(pack);
-	ReadPackString(pack, string, sizeof(string));
+	pack.Reset();
+	pack.ReadString(string, sizeof(string));
 
 	IntToString(g_iOnumber, sONumber, sizeof(sONumber));
 	IntToString(g_iNumber, sNumber, sizeof(sNumber));
@@ -573,12 +577,12 @@ stock void SendHudMsg(int client, const char[] szMessage, bool isCountdown)
 
 	if (bDynamicAvailable)
 	{
-		ShowHudText(client, iHUDChannel, szMessage);
+		ShowHudText(client, iHUDChannel, "%s", szMessage);
 	}
 	else
 	{
 		ClearSyncHud(client, g_hHudSync);
-		ShowSyncHudText(client, g_hHudSync, szMessage);
+		ShowSyncHudText(client, g_hHudSync, "%s", szMessage);
 	}
 }
 
@@ -717,7 +721,7 @@ stock void SendServerMessage(const char[] sMessage, bool bScript = false)
 		return;
 	}
 
-	CPrintToChatAll(sFinalText);
+	CPrintToChatAll("%s", sFinalText);
 
 	// Prepare HUD message
 	if (g_bEnableHud)
@@ -725,7 +729,7 @@ stock void SendServerMessage(const char[] sMessage, bool bScript = false)
 		RemoveTextInBraces(sTrimText, true, true);
 		char szMessage[MAXLENGTH_INPUT + 10];
 		FormatEx(szMessage, sizeof(szMessage), "%s", sTrimText);
-		for (int i = 1 ; i < MaxClients; i++)
+		for (int i = 1 ; i <= MaxClients; i++)
 		{
 			SendHudMsg(i, szMessage, isCountdown);
 		}
