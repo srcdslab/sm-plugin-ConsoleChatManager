@@ -9,5 +9,11 @@
 		"de"		"Die Übersetzungsdatei wurde neu geladen."
 		"pt"		"O arquivo de tradução foi recarregado."
 		"chi"		"翻译文件已重新加载。"
+		"pl"		"Plik tłumaczeń został przeładowany."
+		"tr"		"Çeviri dosyası yeniden yüklendi."
+		"it"		"Il file di traduzione è stato ricaricato."
+		"ua"		"Файл перекладу було перезавантажено."
+		"zho"		"翻譯檔案已重新載入。"
+		"cze"		"Soubor s překlady byl znovu načten."
 	}
 }
